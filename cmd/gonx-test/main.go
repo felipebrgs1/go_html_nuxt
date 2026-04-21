@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go_template/pkg/gonx"
 	"os"
+	"path/filepath"
 )
 
 func main() {
@@ -29,6 +30,10 @@ func main() {
 	
 	// Write file
 	outPath := pf.OutputPath()
+	if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
+		fmt.Printf("Mkdir error: %v\n", err)
+		return
+	}
 	if err := os.WriteFile(outPath, []byte(code), 0644); err != nil {
 		fmt.Printf("Write error: %v\n", err)
 		return

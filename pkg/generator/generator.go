@@ -71,6 +71,26 @@ func RegisterRoutes(mux *http.ServeMux) {
 }
 
 func aliasFromPath(path string) string {
+	// Se for path de .gonx, cria alias distinto para evitar conflito
+	if strings.Contains(path, "/.gonx/") {
+		parts := strings.Split(path, "/")
+		var segs []string
+		for i, p := range parts {
+			if p == ".gonx" && i+1 < len(parts) {
+				segs = parts[i+1:]
+				break
+			}
+		}
+		alias := strings.Join(segs, "_")
+		alias = strings.ReplaceAll(alias, "-", "_")
+		alias = strings.ReplaceAll(alias, ".", "_")
+		alias = strings.TrimPrefix(alias, "_")
+		if len(alias) > 0 && alias[0] >= '0' && alias[0] <= '9' {
+			alias = "_" + alias
+		}
+		return "gonx_" + alias
+	}
+
 	// Cria um alias válido baseado no último segmento do path
 	parts := strings.Split(path, "/")
 	alias := parts[len(parts)-1]

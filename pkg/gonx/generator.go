@@ -75,5 +75,8 @@ func CompileFile(path string) error {
 	}
 
 	outPath := pf.OutputPath()
+	if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
+		return err
+	}
 	return os.WriteFile(outPath, []byte(code), 0644)
 }

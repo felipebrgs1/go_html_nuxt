@@ -305,10 +305,11 @@ func exprToString(expr ast.Expr) string {
 	}
 }
 
-// OutputPath retorna o caminho do arquivo gerado (_gonx.go)
+// OutputPath retorna o caminho do arquivo gerado dentro de .gonx/
 func (pf *ParsedFile) OutputPath() string {
-	dir := filepath.Dir(pf.FilePath)
-	base := filepath.Base(pf.FilePath)
+	rel, _ := filepath.Rel(pf.Root, pf.FilePath)
+	base := filepath.Base(rel)
 	name := strings.TrimSuffix(base, filepath.Ext(base))
-	return filepath.Join(dir, name+"_gonx.go")
+	dir := filepath.Dir(rel)
+	return filepath.Join(pf.Root, ".gonx", dir, name+".go")
 }

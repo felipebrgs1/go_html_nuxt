@@ -110,7 +110,7 @@ func (c *Compiler) compileFunc(b *strings.Builder, fn FuncSignature) error {
 	b.WriteString("}\n\n")
 
 	if fn.ReturnType == "" && isHTTPHandler {
-		b.WriteString(fmt.Sprintf("func %sHandler(w http.ResponseWriter, r *http.Request) {\n", funcName))
+		b.WriteString(fmt.Sprintf("func %s(w http.ResponseWriter, r *http.Request) {\n", funcName))
 		b.WriteString(fmt.Sprintf("\t%s(w)\n", renderName))
 		b.WriteString("}\n\n")
 	}
