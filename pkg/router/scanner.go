@@ -211,24 +211,21 @@ func isHandlerFunc(fn *ast.FuncDecl) bool {
 	if fn.Type.Params == nil || fn.Type.Params.List == nil {
 		return false
 	}
-	if len(fn.Type.Params.List) != 2 {
-		return false
+	// Fiber handler: func(c *fiber.Ctx) error
+	if len(fn.Type.Params.List) == 1 {
+		return true // Simplificação: assume que 1 param e retorno error é fiber
 	}
 
-	// Verifica se o primeiro param é http.ResponseWriter e o segundo *http.Request
-	// Para simplificar, apenas verificamos a quantidade de params e o retorno void
-	// Uma verificação completa de tipos seria mais complexa com ast.
-	// Aqui assumimos que qualquer função com 2 params e retorno vazio é um handler.
-	return fn.Type.Results == nil || len(fn.Type.Results.List) == 0
+	// Legado net/http: func(w, r)
+	if len(fn.Type.Params.List) == 2 {
+		return true
+	}
+	return false
 }
 
 func isGonxHandler(fn gonx.FuncSignature) bool {
-	// Verifica se é handler HTTP: tem http.ResponseWriter e *http.Request nos params
-	// e retorno vazio
-	if fn.ReturnType != "" {
-		return false
-	}
-	return strings.Contains(fn.Params, "http.ResponseWriter") && strings.Contains(fn.Params, "*http.Request")
+	// Verifica se é handler HTTP: tem http.ResponseWriter e *http.Request OU *fiber.Ctx
+	return strings.Contains(fn.Params, "http.ResponseWriter") || strings.Contains(fn.Params, "*fiber.Ctx")
 }
 
 func methodFromName(name string) string {

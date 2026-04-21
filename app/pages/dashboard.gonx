@@ -253,14 +253,14 @@
 package pages
 
 import (
-	"net/http"
 	"strconv"
+	"github.com/gofiber/fiber/v2"
 	"go_template/app/models"
 )
 
 //gonx:layout layouts.Base
 //gonx:layout-args "Dashboard"
-func Dashboard(w http.ResponseWriter, r *http.Request) {}
+func Dashboard(c *fiber.Ctx) error {}
 </script>
 
 <style>

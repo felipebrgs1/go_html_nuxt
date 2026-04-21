@@ -79,11 +79,11 @@
 <script>
 package pages
 
-import "net/http"
+import "github.com/gofiber/fiber/v2"
 
 //gonx:layout layouts.Base
 //gonx:layout-args "Framework Go + HTMX"
-func Index(w http.ResponseWriter, r *http.Request) {}
+func Index(c *fiber.Ctx) error {}
 </script>
 
 <style>

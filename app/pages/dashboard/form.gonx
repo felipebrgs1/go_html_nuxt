@@ -37,9 +37,9 @@
 <script>
 package dashboard
 
-import "net/http"
+import "github.com/gofiber/fiber/v2"
 
-func Form(w http.ResponseWriter, r *http.Request) {}
+func Form(c *fiber.Ctx) error {}
 </script>
 
 <style>

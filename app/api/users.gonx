@@ -5,34 +5,29 @@
 package api
 
 import (
-	"net/http"
 	"strconv"
-
+	"github.com/gofiber/fiber/v2"
 	"go_template/app/models"
 	"go_template/pkg/htmx"
 )
 
-func GetUsersSearch(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query().Get("q")
+func GetUsersSearch(c *fiber.Ctx) error {
+	query := c.Query("q")
 	var filtered []models.User
 	for _, u := range models.Users {
 		if query == "" || models.Contains(u.Name, query) || models.Contains(u.Email, query) {
 			filtered = append(filtered, u)
 		}
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	models.RenderUserTable(w, filtered)
+	c.Type("html")
+	models.RenderUserTable(c.Response().BodyWriter(), filtered)
+	return nil
 }
 
-func PostUsers(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	name := r.FormValue("name")
-	email := r.FormValue("email")
-	role := r.FormValue("role")
+func PostUsers(c *fiber.Ctx) error {
+	name := c.FormValue("name")
+	email := c.FormValue("email")
+	role := c.FormValue("role")
 
 	newUser := models.User{
 		ID:     len(models.Users) + 1,
@@ -44,46 +39,35 @@ func PostUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	models.Users = append(models.Users, newUser)
 
-	if htmx.IsHTMXRequest(r) {
-		htmx.Trigger(w, "userCreated")
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		models.RenderUserTable(w, models.Users)
-		return
+	if htmx.IsFiberHTMXRequest(c) {
+		htmx.FiberTrigger(c, "userCreated")
+		c.Type("html")
+		models.RenderUserTable(c.Response().BodyWriter(), models.Users)
+		return nil
 	}
 
-	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
+	return c.Redirect("/dashboard", fiber.StatusSeeOther)
 }
 
-func PutUsers(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPut {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	id, _ := strconv.Atoi(r.FormValue("id"))
-	name := r.FormValue("name")
-	email := r.FormValue("email")
-	role := r.FormValue("role")
-	status := r.FormValue("status")
+func PutUsers(c *fiber.Ctx) error {
+	id, _ := strconv.Atoi(c.FormValue("id"))
+	name := c.FormValue("name")
+	email := c.FormValue("email")
+	role := c.FormValue("role")
+	status := c.FormValue("status")
 
 	if !models.UpdateUser(id, name, email, role, status) {
-		http.Error(w, "User not found", http.StatusNotFound)
-		return
+		return c.Status(fiber.StatusNotFound).SendString("User not found")
 	}
 
 	u, _ := models.FindUserByID(id)
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	models.RenderUserRow(w, u)
+	c.Type("html")
+	models.RenderUserRow(c.Response().BodyWriter(), u)
+	return nil
 }
 
-func DeleteUsers(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	idStr := r.URL.Query().Get("id")
-	id, _ := strconv.Atoi(idStr)
+func DeleteUsers(c *fiber.Ctx) error {
+	id, _ := strconv.Atoi(c.Query("id"))
 
 	var filtered []models.User
 	for _, u := range models.Users {
@@ -93,13 +77,11 @@ func DeleteUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	models.Users = filtered
 
-	if htmx.IsHTMXRequest(r) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(""))
-		return
+	if htmx.IsFiberHTMXRequest(c) {
+		return c.SendString("")
 	}
 
-	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
+	return c.Redirect("/dashboard", fiber.StatusSeeOther)
 }
 </script>
 

@@ -5,22 +5,20 @@
 package api
 
 import (
-	"net/http"
 	"strconv"
-
+	"github.com/gofiber/fiber/v2"
 	"go_template/app/models"
 )
 
-func GetUsersEdit(w http.ResponseWriter, r *http.Request) {
-	idStr := r.URL.Query().Get("id")
-	id, _ := strconv.Atoi(idStr)
+func GetUsersEdit(c *fiber.Ctx) error {
+	id, _ := strconv.Atoi(c.Query("id"))
 	u, ok := models.FindUserByID(id)
 	if !ok {
-		http.Error(w, "User not found", http.StatusNotFound)
-		return
+		return c.Status(fiber.StatusNotFound).SendString("User not found")
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	models.RenderUserEditForm(w, u)
+	c.Type("html")
+	models.RenderUserEditForm(c.Response().BodyWriter(), u)
+	return nil
 }
 </script>
 

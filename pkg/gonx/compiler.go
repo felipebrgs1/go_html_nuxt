@@ -12,7 +12,7 @@ type Compiler struct {
 	usesFmt     bool
 	usesHtml    bool
 	usesIO      bool
-	usesNetHttp bool
+	usesFiber   bool
 }
 
 func NewCompiler(pf *ParsedFile) *Compiler {
@@ -69,8 +69,8 @@ func (c *Compiler) buildImports() []string {
 	if c.usesHtml {
 		imports = append(imports, `"html"`)
 	}
-	if c.usesNetHttp {
-		imports = append(imports, `"net/http"`)
+	if c.usesFiber {
+		imports = append(imports, `"github.com/gofiber/fiber/v2"`)
 	}
 
 	// Imports explícitos do usuário
@@ -107,31 +107,37 @@ func (c *Compiler) compilePage(b *strings.Builder) error {
 	pageName := c.pf.PageName
 	renderName := "Render" + pageName
 
-	// Gera Render<PageName>(w io.Writer, r *http.Request)
+	// Gera Render<PageName>(w io.Writer, c *fiber.Ctx)
 	c.usesIO = true
-	b.WriteString(fmt.Sprintf("func %s(w io.Writer, r *http.Request) {\n", renderName))
+	b.WriteString(fmt.Sprintf("func %s(w io.Writer, c *fiber.Ctx) {\n", renderName))
 	if err := c.compileTemplateBody(b, c.pf.Template, 1); err != nil {
 		return err
 	}
 	b.WriteString("}\n\n")
 
-	// Gera handler HTTP
-	c.usesNetHttp = true
+	// Gera handler Fiber
+	c.usesFiber = true
 	layout := c.findPageLayout()
 	if layout != nil {
 		layoutCall := layout.LayoutPkg + ".Render" + layout.LayoutFunc
-		b.WriteString(fmt.Sprintf("func %s(w http.ResponseWriter, r *http.Request) {\n", pageName))
+		b.WriteString(fmt.Sprintf("func %s(c *fiber.Ctx) error {\n", pageName))
+		b.WriteString("\tw := c.Response().BodyWriter()\n")
+		b.WriteString("\tc.Set(\"Content-Type\", \"text/html; charset=utf-8\")\n")
 		if layout.LayoutArgs != "" {
 			b.WriteString(fmt.Sprintf("\t%s(w, %s, func(w io.Writer) {\n", layoutCall, layout.LayoutArgs))
 		} else {
 			b.WriteString(fmt.Sprintf("\t%s(w, func(w io.Writer) {\n", layoutCall))
 		}
-		b.WriteString(fmt.Sprintf("\t\t%s(w, r)\n", renderName))
+		b.WriteString(fmt.Sprintf("\t\t%s(w, c)\n", renderName))
 		b.WriteString("\t})\n")
+		b.WriteString("\treturn nil\n")
 		b.WriteString("}\n\n")
 	} else {
-		b.WriteString(fmt.Sprintf("func %s(w http.ResponseWriter, r *http.Request) {\n", pageName))
-		b.WriteString(fmt.Sprintf("\t%s(w, r)\n", renderName))
+		b.WriteString(fmt.Sprintf("func %s(c *fiber.Ctx) error {\n", pageName))
+		b.WriteString("\tw := c.Response().BodyWriter()\n")
+		b.WriteString("\tc.Set(\"Content-Type\", \"text/html; charset=utf-8\")\n")
+		b.WriteString(fmt.Sprintf("\t%s(w, c)\n", renderName))
+		b.WriteString("\treturn nil\n")
 		b.WriteString("}\n\n")
 	}
 
@@ -150,8 +156,6 @@ func (c *Compiler) findPageLayout() *FuncSignature {
 }
 
 // compileAPI gera código para arquivos em app/api/
-// - Inclui funções com corpo do script
-// - Para stubs HTTP handler, gera Render<Name> + wrapper
 func (c *Compiler) compileAPI(b *strings.Builder) error {
 	// Inclui funções com corpo do script
 	for _, fn := range c.pf.Funcs {
@@ -177,11 +181,11 @@ func (c *Compiler) compileFunc(b *strings.Builder, fn FuncSignature) error {
 	funcName := fn.Name
 	renderName := "Render" + funcName
 
-	isHTTPHandler := strings.Contains(fn.Params, "http.ResponseWriter") && strings.Contains(fn.Params, "*http.Request")
+	isHTTPHandler := strings.Contains(fn.Params, "http.ResponseWriter") || strings.Contains(fn.Params, "*fiber.Ctx")
 	renderParams := fn.Params
 	if isHTTPHandler {
 		renderParams = ""
-		c.usesNetHttp = true
+		c.usesFiber = true
 	}
 
 	c.usesIO = true
@@ -200,7 +204,9 @@ func (c *Compiler) compileFunc(b *strings.Builder, fn FuncSignature) error {
 	if fn.ReturnType == "" && isHTTPHandler {
 		if fn.LayoutPkg != "" && fn.LayoutFunc != "" {
 			layoutCall := fn.LayoutPkg + ".Render" + fn.LayoutFunc
-			b.WriteString(fmt.Sprintf("func %s(w http.ResponseWriter, r *http.Request) {\n", funcName))
+			b.WriteString(fmt.Sprintf("func %s(c *fiber.Ctx) error {\n", funcName))
+			b.WriteString("\tw := c.Response().BodyWriter()\n")
+			b.WriteString("\tc.Set(\"Content-Type\", \"text/html; charset=utf-8\")\n")
 			if fn.LayoutArgs != "" {
 				b.WriteString(fmt.Sprintf("\t%s(w, %s, func(w io.Writer) {\n", layoutCall, fn.LayoutArgs))
 			} else {
@@ -208,14 +214,17 @@ func (c *Compiler) compileFunc(b *strings.Builder, fn FuncSignature) error {
 			}
 			b.WriteString(fmt.Sprintf("\t\t%s(w)\n", renderName))
 			b.WriteString("\t})\n")
+			b.WriteString("\treturn nil\n")
 			b.WriteString("}\n\n")
 		} else {
-			b.WriteString(fmt.Sprintf("func %s(w http.ResponseWriter, r *http.Request) {\n", funcName))
+			b.WriteString(fmt.Sprintf("func %s(c *fiber.Ctx) error {\n", funcName))
+			b.WriteString("\tw := c.Response().BodyWriter()\n")
+			b.WriteString("\tc.Set(\"Content-Type\", \"text/html; charset=utf-8\")\n")
 			b.WriteString(fmt.Sprintf("\t%s(w)\n", renderName))
+			b.WriteString("\treturn nil\n")
 			b.WriteString("}\n\n")
 		}
 	}
-
 	return nil
 }
 

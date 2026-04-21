@@ -161,7 +161,7 @@ func (l *Linter) lintGonx(path string) {
 			// Try to find line number
 			line := findLine(content, "func "+fn.Name)
 			l.result.Add(path, line, "handler-signature", Error,
-				fmt.Sprintf("função %s não parece ser um handler HTTP válido (esperado: func %s(w http.ResponseWriter, r *http.Request))", fn.Name, fn.Name))
+				fmt.Sprintf("função %s não parece ser um handler Fiber válido (esperado: func %s(c *fiber.Ctx) error)", fn.Name, fn.Name))
 		}
 	}
 
@@ -175,9 +175,11 @@ func (l *Linter) lintGonx(path string) {
 }
 
 func isValidHandler(fn gonx.FuncSignature) bool {
-	if fn.ReturnType != "" {
-		return false
+	// Aceita assinaturas Fiber (error return) ou legado io.Writer (para layouts/templates internos)
+	if strings.Contains(fn.Params, "*fiber.Ctx") {
+		return fn.ReturnType == "error" || fn.ReturnType == ""
 	}
+	// Legado net/http
 	return strings.Contains(fn.Params, "http.ResponseWriter") && strings.Contains(fn.Params, "*http.Request")
 }
 

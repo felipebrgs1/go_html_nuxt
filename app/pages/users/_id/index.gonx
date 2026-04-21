@@ -1,7 +1,7 @@
 <template>
 <div class="text-center py-12">
 	<h1 class="text-4xl font-bold text-gray-900 mb-4">Usuário</h1>
-	<p class="text-xl text-gray-600">ID: <span class="font-mono text-blue-600">{{ r.PathValue("id") }}</span></p>
+	<p class="text-xl text-gray-600">ID: <span class="font-mono text-blue-600">{{ c.Params("id") }}</span></p>
 	<a href="/" class="mt-6 inline-block text-blue-600 hover:text-blue-800 underline">Voltar</a>
 </div>
 </template>
