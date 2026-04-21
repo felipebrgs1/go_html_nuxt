@@ -10,10 +10,14 @@ dev:
 	go build -o $(BINARY_NAME) $(CMD_PATH)
 	./$(BINARY_NAME) dev
 
-# Build de produção: compila o CLI otimizado
-build:
+# Build de produção: gera gonx/rotas e compila o CLI otimizado
+build: generate
 	go build $(BUILD_FLAGS) -o $(BINARY_NAME) $(CMD_PATH)
 	@echo "✅ Binário gerado: ./$(BINARY_NAME)"
+
+# Gera arquivos compilados (.gonx -> gonx/) e rotas (framework_gen/routes.gen.go)
+generate:
+	@go run scripts/generate.go
 
 # Instala o CLI no GOPATH/bin
 install:

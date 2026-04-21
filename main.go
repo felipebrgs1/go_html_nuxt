@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"go_template/framework_gen"
+	"go_template/gonx/framework_gen"
 )
 
 func main() {

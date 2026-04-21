@@ -1,3 +1,7 @@
+<template>
+</template>
+
+<script>
 package api
 
 import (
@@ -96,3 +100,7 @@ func initials(name string) string {
 	}
 	return string(parts[0])
 }
+</script>
+
+<style>
+</style>

@@ -8,11 +8,11 @@ import (
 
 // Compiler compila o template .gonx em código Go
 type Compiler struct {
-	pf           *ParsedFile
-	usesFmt      bool
-	usesHtml     bool
-	usesIO       bool
-	usesNetHttp  bool
+	pf          *ParsedFile
+	usesFmt     bool
+	usesHtml    bool
+	usesIO      bool
+	usesNetHttp bool
 }
 
 func NewCompiler(pf *ParsedFile) *Compiler {
@@ -29,9 +29,14 @@ func (c *Compiler) Compile() (string, error) {
 
 	// Gera o corpo primeiro para saber quais imports são necessários
 	var body strings.Builder
-	for _, fn := range c.pf.Funcs {
-		if err := c.compileFunc(&body, fn); err != nil {
-			return "", fmt.Errorf("erro ao compilar função %s: %w", fn.Name, err)
+
+	if c.pf.IsPage {
+		if err := c.compilePage(&body); err != nil {
+			return "", err
+		}
+	} else {
+		if err := c.compileAPI(&body); err != nil {
+			return "", err
 		}
 	}
 
@@ -53,10 +58,11 @@ func (c *Compiler) Compile() (string, error) {
 
 func (c *Compiler) buildImports() []string {
 	var imports []string
-	
-	// Sempre precisa de io (writer)
-	imports = append(imports, `"io"`)
-	
+
+	if c.usesIO {
+		imports = append(imports, `"io"`)
+	}
+
 	if c.usesFmt {
 		imports = append(imports, `"fmt"`)
 	}
@@ -66,13 +72,13 @@ func (c *Compiler) buildImports() []string {
 	if c.usesNetHttp {
 		imports = append(imports, `"net/http"`)
 	}
-	
+
 	// Imports explícitos do usuário
 	imports = append(imports, c.pf.Imports...)
-	
+
 	// Auto-imports descobertos
 	imports = append(imports, c.pf.AutoImports...)
-	
+
 	// Remove duplicatas
 	seen := make(map[string]bool)
 	var unique []string
@@ -82,21 +88,103 @@ func (c *Compiler) buildImports() []string {
 			unique = append(unique, imp)
 		}
 	}
-	
+
 	return unique
+}
+
+// compilePage gera código para arquivos em app/pages/
+// - Inclui funções com corpo do script
+// - Gera Render<PageName> para o template
+// - Gera handler HTTP automaticamente
+func (c *Compiler) compilePage(b *strings.Builder) error {
+	// Inclui funções com corpo do script
+	for _, fn := range c.pf.Funcs {
+		if fn.HasBody && fn.BodySource != "" {
+			b.WriteString(fn.BodySource + "\n\n")
+		}
+	}
+
+	pageName := c.pf.PageName
+	renderName := "Render" + pageName
+
+	// Gera Render<PageName>(w io.Writer, r *http.Request)
+	c.usesIO = true
+	b.WriteString(fmt.Sprintf("func %s(w io.Writer, r *http.Request) {\n", renderName))
+	if err := c.compileTemplateBody(b, c.pf.Template, 1); err != nil {
+		return err
+	}
+	b.WriteString("}\n\n")
+
+	// Gera handler HTTP
+	c.usesNetHttp = true
+	layout := c.findPageLayout()
+	if layout != nil {
+		layoutCall := layout.LayoutPkg + ".Render" + layout.LayoutFunc
+		b.WriteString(fmt.Sprintf("func %s(w http.ResponseWriter, r *http.Request) {\n", pageName))
+		if layout.LayoutArgs != "" {
+			b.WriteString(fmt.Sprintf("\t%s(w, %s, func(w io.Writer) {\n", layoutCall, layout.LayoutArgs))
+		} else {
+			b.WriteString(fmt.Sprintf("\t%s(w, func(w io.Writer) {\n", layoutCall))
+		}
+		b.WriteString(fmt.Sprintf("\t\t%s(w, r)\n", renderName))
+		b.WriteString("\t})\n")
+		b.WriteString("}\n\n")
+	} else {
+		b.WriteString(fmt.Sprintf("func %s(w http.ResponseWriter, r *http.Request) {\n", pageName))
+		b.WriteString(fmt.Sprintf("\t%s(w, r)\n", renderName))
+		b.WriteString("}\n\n")
+	}
+
+	return nil
+}
+
+// findPageLayout procura uma função stub no script com o nome da página
+// que tenha diretivas de layout
+func (c *Compiler) findPageLayout() *FuncSignature {
+	for _, fn := range c.pf.Funcs {
+		if fn.Name == c.pf.PageName && !fn.HasBody && fn.LayoutPkg != "" && fn.LayoutFunc != "" {
+			return &fn
+		}
+	}
+	return nil
+}
+
+// compileAPI gera código para arquivos em app/api/
+// - Inclui funções com corpo do script
+// - Para stubs HTTP handler, gera Render<Name> + wrapper
+func (c *Compiler) compileAPI(b *strings.Builder) error {
+	// Inclui funções com corpo do script
+	for _, fn := range c.pf.Funcs {
+		if fn.HasBody && fn.BodySource != "" {
+			b.WriteString(fn.BodySource + "\n\n")
+		}
+	}
+
+	// Para cada stub HTTP handler, gera render + wrapper
+	for _, fn := range c.pf.Funcs {
+		if fn.HasBody {
+			continue
+		}
+		if err := c.compileFunc(b, fn); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (c *Compiler) compileFunc(b *strings.Builder, fn FuncSignature) error {
 	funcName := fn.Name
 	renderName := "Render" + funcName
-	
+
 	isHTTPHandler := strings.Contains(fn.Params, "http.ResponseWriter") && strings.Contains(fn.Params, "*http.Request")
 	renderParams := fn.Params
 	if isHTTPHandler {
 		renderParams = ""
 		c.usesNetHttp = true
 	}
-	
+
+	c.usesIO = true
 	b.WriteString(fmt.Sprintf("func %s(w io.Writer", renderName))
 	if renderParams != "" {
 		b.WriteString(", " + renderParams)
@@ -110,9 +198,22 @@ func (c *Compiler) compileFunc(b *strings.Builder, fn FuncSignature) error {
 	b.WriteString("}\n\n")
 
 	if fn.ReturnType == "" && isHTTPHandler {
-		b.WriteString(fmt.Sprintf("func %s(w http.ResponseWriter, r *http.Request) {\n", funcName))
-		b.WriteString(fmt.Sprintf("\t%s(w)\n", renderName))
-		b.WriteString("}\n\n")
+		if fn.LayoutPkg != "" && fn.LayoutFunc != "" {
+			layoutCall := fn.LayoutPkg + ".Render" + fn.LayoutFunc
+			b.WriteString(fmt.Sprintf("func %s(w http.ResponseWriter, r *http.Request) {\n", funcName))
+			if fn.LayoutArgs != "" {
+				b.WriteString(fmt.Sprintf("\t%s(w, %s, func(w io.Writer) {\n", layoutCall, fn.LayoutArgs))
+			} else {
+				b.WriteString(fmt.Sprintf("\t%s(w, func(w io.Writer) {\n", layoutCall))
+			}
+			b.WriteString(fmt.Sprintf("\t\t%s(w)\n", renderName))
+			b.WriteString("\t})\n")
+			b.WriteString("}\n\n")
+		} else {
+			b.WriteString(fmt.Sprintf("func %s(w http.ResponseWriter, r *http.Request) {\n", funcName))
+			b.WriteString(fmt.Sprintf("\t%s(w)\n", renderName))
+			b.WriteString("}\n\n")
+		}
 	}
 
 	return nil
@@ -120,12 +221,12 @@ func (c *Compiler) compileFunc(b *strings.Builder, fn FuncSignature) error {
 
 func (c *Compiler) compileTemplateBody(b *strings.Builder, tmpl string, indent int) error {
 	tabs := strings.Repeat("\t", indent)
-	
+
 	re := regexp.MustCompile(`(?s)\{\{\s*(.*?)\s*\}\}`)
-	
+
 	lastIndex := 0
 	matches := re.FindAllStringSubmatchIndex(tmpl, -1)
-	
+
 	for _, m := range matches {
 		if m[0] > lastIndex {
 			text := tmpl[lastIndex:m[0]]
@@ -133,32 +234,37 @@ func (c *Compiler) compileTemplateBody(b *strings.Builder, tmpl string, indent i
 				b.WriteString(tabs + c.writeString(text))
 			}
 		}
-		
+
 		expr := tmpl[m[2]:m[3]]
 		if err := c.compileExpr(b, strings.TrimSpace(expr), indent); err != nil {
 			return err
 		}
-		
+
 		lastIndex = m[1]
 	}
-	
+
 	if lastIndex < len(tmpl) {
 		text := tmpl[lastIndex:]
 		if strings.TrimSpace(text) != "" {
 			b.WriteString(tabs + c.writeString(text))
 		}
 	}
-	
+
 	return nil
 }
 
 func (c *Compiler) compileExpr(b *strings.Builder, expr string, indent int) error {
 	tabs := strings.Repeat("\t", indent)
-	
+
 	// Controle de fluxo
 	if strings.HasPrefix(expr, "if ") {
 		cond := strings.TrimPrefix(expr, "if ")
 		b.WriteString(tabs + "if " + cond + " {\n")
+		return nil
+	}
+	if strings.HasPrefix(expr, "else if ") {
+		cond := strings.TrimPrefix(expr, "else if ")
+		b.WriteString(tabs + "} else if " + cond + " {\n")
 		return nil
 	}
 	if expr == "else" {
@@ -169,18 +275,25 @@ func (c *Compiler) compileExpr(b *strings.Builder, expr string, indent int) erro
 		b.WriteString(tabs + "}\n")
 		return nil
 	}
-	
+
 	if strings.HasPrefix(expr, "range ") {
 		items := strings.TrimPrefix(expr, "range ")
 		b.WriteString(tabs + "for _, _gonx_it := range " + items + " {\n")
 		return nil
 	}
-	
+
+	// children é um slot especial: chama a função callback
+	if expr == "children" {
+		b.WriteString(tabs + "children(w)\n")
+		return nil
+	}
+
 	// É uma expressão de valor -> precisa de fmt e html
 	c.usesFmt = true
-	
+	c.usesIO = true
+
 	needsEscape := !strings.Contains(expr, ".Raw") && !strings.HasPrefix(expr, "html.")
-	
+
 	if needsEscape {
 		c.usesHtml = true
 		b.WriteString(tabs + fmt.Sprintf("io.WriteString(w, html.EscapeString(fmt.Sprintf(\"%%v\", %s)))\n", expr))
@@ -193,15 +306,16 @@ func (c *Compiler) compileExpr(b *strings.Builder, expr string, indent int) erro
 		}
 		b.WriteString(tabs + fmt.Sprintf("io.WriteString(w, fmt.Sprintf(\"%%v\", %s))\n", expr))
 	}
-	
+
 	return nil
 }
 
 func (c *Compiler) writeString(text string) string {
+	c.usesIO = true
 	escaped := strings.ReplaceAll(text, `\`, `\\`)
 	escaped = strings.ReplaceAll(escaped, `"`, `\"`)
 	escaped = strings.ReplaceAll(escaped, "\n", `\n`)
 	escaped = strings.ReplaceAll(escaped, "\t", `\t`)
-	
+
 	return fmt.Sprintf("io.WriteString(w, \"%s\")\n", escaped)
 }

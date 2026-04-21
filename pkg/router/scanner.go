@@ -116,20 +116,34 @@ func (s *Scanner) scanDir(dir, prefix string, isPage, isAPI bool) ([]Route, erro
 				pkgImport = filepath.Join(s.moduleName(), gonxPrefix)
 			}
 
-			for _, fn := range pf.Funcs {
-				if !isGonxHandler(fn) {
-					continue
-				}
-				method := methodFromName(fn.Name)
+			if isPage {
+				// Páginas: rota automática baseada no nome do arquivo
 				routes = append(routes, Route{
-					Method:      method,
+					Method:      "GET",
 					Pattern:     routePath,
 					FilePath:    path,
 					PackagePath: pkgImport,
-					HandlerName: fn.Name,
-					IsPage:      isPage,
-					IsAPI:       isAPI,
+					HandlerName: pf.PageName,
+					IsPage:      true,
+					IsAPI:       false,
 				})
+			} else {
+				// APIs: usa funções do script como handlers
+				for _, fn := range pf.Funcs {
+					if !isGonxHandler(fn) {
+						continue
+					}
+					method := methodFromName(fn.Name)
+					routes = append(routes, Route{
+						Method:      method,
+						Pattern:     routePath,
+						FilePath:    path,
+						PackagePath: pkgImport,
+						HandlerName: fn.Name,
+						IsPage:      false,
+						IsAPI:       true,
+					})
+				}
 			}
 			return nil
 		}

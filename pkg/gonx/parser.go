@@ -19,9 +19,12 @@ type ParsedFile struct {
 	Script      string           // código Go puro do bloco <script>
 	Template    string           // conteúdo do bloco <template>
 	Style       string           // conteúdo do bloco <style>
-	Funcs       []FuncSignature  // funções exportadas encontradas no script
+	Funcs       []FuncSignature  // funções encontradas no script
 	FilePath    string
 	Root        string           // raiz do projeto (para resolver auto-imports)
+	IsPage      bool             // true se vem de app/pages
+	IsAPI       bool             // true se vem de app/api
+	PageName    string           // nome do handler para páginas (PascalCase do arquivo)
 }
 
 // FuncSignature representa uma função encontrada no script
@@ -29,6 +32,11 @@ type FuncSignature struct {
 	Name       string
 	Params     string
 	ReturnType string
+	LayoutPkg  string // pacote do layout (ex: "layouts")
+	LayoutFunc string // função do layout (ex: "Base")
+	LayoutArgs string // argumentos extra do layout (ex: `"Dashboard"`)
+	HasBody    bool   // true se a função tem corpo no script
+	BodySource string // texto completo da função no script
 }
 
 // ParseFile lê e parseia um arquivo .gonx
@@ -40,6 +48,13 @@ func ParseFile(path string) (*ParsedFile, error) {
 
 	root := findProjectRoot(path)
 	pf := &ParsedFile{FilePath: path, Root: root}
+
+	// Detecta se é página ou API
+	rel, _ := filepath.Rel(root, path)
+	relSlash := filepath.ToSlash(rel)
+	pf.IsPage = strings.HasPrefix(relSlash, "app/pages/")
+	pf.IsAPI = strings.HasPrefix(relSlash, "app/api/")
+	pf.PageName = fileToHandlerName(path)
 
 	// Extrai blocos <template>, <script>, <style>
 	pf.Template = extractBlock(string(content), "template")
@@ -57,6 +72,21 @@ func ParseFile(path string) (*ParsedFile, error) {
 	}
 
 	return pf, nil
+}
+
+func fileToHandlerName(path string) string {
+	base := filepath.Base(path)
+	base = strings.TrimSuffix(base, filepath.Ext(base))
+	// Converte para PascalCase (ex: hello-world -> HelloWorld, index -> Index)
+	parts := strings.Split(base, "-")
+	var result string
+	for _, p := range parts {
+		if p == "" {
+			continue
+		}
+		result += strings.ToUpper(p[:1]) + p[1:]
+	}
+	return result
 }
 
 func findProjectRoot(filePath string) string {
@@ -95,9 +125,13 @@ func (pf *ParsedFile) parseScript() error {
 		return fmt.Errorf("bloco <script> não encontrado")
 	}
 
-	src := pf.Script
+	originalSrc := pf.Script
+	src := originalSrc
+	offset := 0
 	if !strings.HasPrefix(strings.TrimSpace(src), "package ") {
-		src = "package main\n" + src
+		prefix := "package main\n"
+		src = prefix + src
+		offset = len(prefix)
 	}
 
 	fset := token.NewFileSet()
@@ -142,6 +176,35 @@ func (pf *ParsedFile) parseScript() error {
 			}
 			sig.ReturnType = strings.Join(rets, ", ")
 		}
+
+		// Extrai corpo da função
+		if fn.Body != nil {
+			sig.HasBody = len(fn.Body.List) > 0
+			start := fset.Position(fn.Pos()).Offset - offset
+			end := fset.Position(fn.End()).Offset - offset
+			if start >= 0 && end > start && end <= len(originalSrc) {
+				sig.BodySource = originalSrc[start:end]
+			}
+		}
+
+		// Extrai diretivas de layout dos comentários
+		if fn.Doc != nil {
+			for _, c := range fn.Doc.List {
+				text := strings.TrimSpace(strings.TrimPrefix(c.Text, "//"))
+				if strings.HasPrefix(text, "gonx:layout ") {
+					layout := strings.TrimSpace(strings.TrimPrefix(text, "gonx:layout "))
+					dotIdx := strings.LastIndex(layout, ".")
+					if dotIdx > 0 {
+						sig.LayoutPkg = layout[:dotIdx]
+						sig.LayoutFunc = layout[dotIdx+1:]
+					}
+				}
+				if strings.HasPrefix(text, "gonx:layout-args ") {
+					sig.LayoutArgs = strings.TrimSpace(strings.TrimPrefix(text, "gonx:layout-args "))
+				}
+			}
+		}
+
 		pf.Funcs = append(pf.Funcs, sig)
 	}
 
@@ -168,16 +231,26 @@ func (pf *ParsedFile) resolveAutoImports() error {
 
 	// Imports já explícitos (para não duplicar)
 	explicit := make(map[string]bool)
+	explicitPkgName := make(map[string]bool)
 	for _, imp := range pf.Imports {
 		// extrai o path do import
 		parts := strings.Split(imp, `"`)
 		if len(parts) >= 2 {
-			explicit[parts[1]] = true
+			path := parts[1]
+			explicit[path] = true
+			// último segmento do path é o nome do pacote
+			segs := strings.Split(path, "/")
+			if len(segs) > 0 {
+				explicitPkgName[segs[len(segs)-1]] = true
+			}
 		}
 	}
 
 	// Para cada identificador usado, verifica se é um pacote interno
 	for ident := range idents {
+		if explicitPkgName[ident] {
+			continue
+		}
 		if pkgPath, ok := pkgMap[ident]; ok {
 			if !explicit[pkgPath] {
 				pf.AutoImports = append(pf.AutoImports, `"`+pkgPath+`"`)
@@ -222,6 +295,13 @@ func (pf *ParsedFile) extractIdentifiers() map[string]bool {
 		return true
 	})
 
+	// Também adiciona layouts referenciados por diretivas
+	for _, fn := range pf.Funcs {
+		if fn.LayoutPkg != "" {
+			idents[fn.LayoutPkg] = true
+		}
+	}
+
 	return idents
 }
 
@@ -246,16 +326,23 @@ func (pf *ParsedFile) scanProjectPackages() (map[string]string, error) {
 			if err != nil || !info.IsDir() {
 				return nil
 			}
-			// Verifica se é um pacote Go (tem pelo menos um .go)
+			// Verifica se é um pacote Go ou Gonx
 			entries, _ := os.ReadDir(path)
 			hasGo := false
+			hasGonx := false
 			for _, e := range entries {
-				if !e.IsDir() && strings.HasSuffix(e.Name(), ".go") && !strings.HasSuffix(e.Name(), "_test.go") {
+				if e.IsDir() {
+					continue
+				}
+				name := e.Name()
+				if strings.HasSuffix(name, ".go") && !strings.HasSuffix(name, "_test.go") {
 					hasGo = true
-					break
+				}
+				if strings.HasSuffix(name, ".gonx") {
+					hasGonx = true
 				}
 			}
-			if !hasGo {
+			if !hasGo && !hasGonx {
 				return nil
 			}
 
@@ -264,9 +351,20 @@ func (pf *ParsedFile) scanProjectPackages() (map[string]string, error) {
 			importPath = filepath.ToSlash(importPath)
 			pkgName := filepath.Base(path)
 			
-			// Só adiciona se o nome do pacote não conflitar com imports já explícitos
-			if _, exists := pkgMap[pkgName]; !exists {
-				pkgMap[pkgName] = importPath
+			// Se tem .gonx, registra o caminho compilado em gonx/ (prioridade)
+			if hasGonx {
+				gonxPath := filepath.Join(moduleName, "gonx", rel)
+				gonxPath = filepath.ToSlash(gonxPath)
+				if _, exists := pkgMap[pkgName]; !exists {
+					pkgMap[pkgName] = gonxPath
+				}
+			}
+
+			// Se tem .go tradicional, registra o caminho original
+			if hasGo {
+				if _, exists := pkgMap[pkgName]; !exists {
+					pkgMap[pkgName] = importPath
+				}
 			}
 			return nil
 		})
@@ -302,7 +400,31 @@ func exprToString(expr ast.Expr) string {
 	case *ast.MapType:
 		return "map[" + exprToString(e.Key) + "]" + exprToString(e.Value)
 	case *ast.FuncType:
-		return "func"
+		var params []string
+		if e.Params != nil {
+			for _, field := range e.Params.List {
+				ptype := exprToString(field.Type)
+				for range field.Names {
+					params = append(params, ptype)
+				}
+				if len(field.Names) == 0 {
+					params = append(params, ptype)
+				}
+			}
+		}
+		var results []string
+		if e.Results != nil {
+			for _, field := range e.Results.List {
+				results = append(results, exprToString(field.Type))
+			}
+		}
+		sig := "func(" + strings.Join(params, ", ") + ")"
+		if len(results) == 1 {
+			sig += " " + results[0]
+		} else if len(results) > 1 {
+			sig += " (" + strings.Join(results, ", ") + ")"
+		}
+		return sig
 	case *ast.InterfaceType:
 		return "interface{}"
 	case *ast.ChanType:

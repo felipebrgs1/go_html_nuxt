@@ -16,7 +16,7 @@ vendor/
 *.dylib
 *.test
 *.out
-
+/gonx/
 # IDE
 .idea/
 .vscode/

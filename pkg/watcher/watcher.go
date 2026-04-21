@@ -63,7 +63,7 @@ func (fw *FileWatcher) addDirs(root string) error {
 		base := filepath.Base(path)
 		// Ignora diretórios que causam loops ou não são código-fonte
 		if base == ".git" || base == "node_modules" || base == "vendor" ||
-			base == "tmp" || base == "framework_gen" || base == "public" ||
+			base == "tmp" || base == "public" ||
 			base == "gonx" {
 			return filepath.SkipDir
 		}
