@@ -2,7 +2,7 @@
 
 # Variáveis
 BINARY_NAME=framework
-CMD_PATH=./cmd/framework
+CMD_PATH=./scripts/framework
 BUILD_FLAGS=-ldflags="-s -w"
 
 # Desenvolvimento: compila e executa o CLI em modo dev
