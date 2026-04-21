@@ -6,5 +6,5 @@ import (
 )
 
 func Index(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "<h1>Hello from Framework!</h1>")
+	fmt.Fprintln(w, "<h1>Hello users from Framework!</h1>")
 }
