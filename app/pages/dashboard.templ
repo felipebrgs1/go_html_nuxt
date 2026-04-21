@@ -1,6 +1,9 @@
 package pages
 
-import "go_template/app/layouts"
+import (
+	"go_template/app/layouts"
+	"strconv"
+)
 
 templ DashboardPage() {
 	@layouts.Base("Dashboard") {
@@ -200,7 +203,7 @@ templ UserRow(u User) {
 		</td>
 		<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
 			<button class="text-blue-600 hover:text-blue-900 mr-3">Editar</button>
-			<button class="text-red-600 hover:text-red-900">Excluir</button>
+			<button class="text-red-600 hover:text-red-900" hx-delete={ "/api/users?id=" + strconv.Itoa(u.ID) } hx-target="closest tr" hx-swap="outerHTML" hx-confirm="Tem certeza que deseja excluir este usuário?">Excluir</button>
 		</td>
 	</tr>
 }
@@ -211,7 +214,7 @@ templ UserForm() {
 			<div class="px-6 py-4 border-b border-gray-200">
 				<h3 class="text-lg font-medium text-gray-900">Novo Usuário</h3>
 			</div>
-			<form class="px-6 py-4 space-y-4" hx-post="/api/users" hx-target="#users-table" hx-swap="innerHTML">
+			<form class="px-6 py-4 space-y-4" hx-post="/api/users" hx-target="#users-table" hx-swap="innerHTML" hx-on::after-request="this.closest('.fixed').remove()">
 				<div>
 					<label class="block text-sm font-medium text-gray-700">Nome</label>
 					<input type="text" name="name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"/>

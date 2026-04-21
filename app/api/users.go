@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/a-h/templ"
 	"go_template/app/pages"
@@ -41,7 +42,32 @@ func PostUsers(w http.ResponseWriter, r *http.Request) {
 
 	if htmx.IsHTMXRequest(r) {
 		htmx.Trigger(w, "userCreated")
-		templ.Handler(pages.UserRow(newUser)).ServeHTTP(w, r)
+		templ.Handler(pages.UserTable(pages.Users)).ServeHTTP(w, r)
+		return
+	}
+
+	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
+}
+
+func DeleteUsers(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	idStr := r.URL.Query().Get("id")
+	id, _ := strconv.Atoi(idStr)
+
+	var filtered []pages.User
+	for _, u := range pages.Users {
+		if u.ID != id {
+			filtered = append(filtered, u)
+		}
+	}
+	pages.Users = filtered
+
+	if htmx.IsHTMXRequest(r) {
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 
@@ -61,6 +87,9 @@ func contains(s, substr string) bool {
 }
 
 func initials(name string) string {
+	if name == "" {
+		return "?"
+	}
 	parts := []rune(name)
 	if len(parts) >= 2 {
 		return string(parts[0]) + string(parts[len(parts)-1])
