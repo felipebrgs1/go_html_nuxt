@@ -102,12 +102,12 @@ func (fw *FileWatcher) shouldTrigger(event fsnotify.Event) bool {
 	}
 
 	ext := filepath.Ext(event.Name)
-	if ext != ".go" && ext != ".templ" {
+	if ext != ".go" && ext != ".templ" && ext != ".gonx" {
 		return false
 	}
 
 	base := filepath.Base(event.Name)
-	if strings.HasSuffix(base, "_templ.go") {
+	if strings.HasSuffix(base, "_templ.go") || strings.HasSuffix(base, "_gonx.go") {
 		return false
 	}
 

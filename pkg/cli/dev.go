@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"go_template/pkg/generator"
+	"go_template/pkg/gonx"
 	"go_template/pkg/router"
 	"go_template/pkg/server"
 	"go_template/pkg/tailwind"
@@ -107,6 +108,11 @@ func generateRoutes(root string) error {
 }
 
 func compileAssets(root string) error {
+	if gonx.HasGonx(root) {
+		if err := gonx.Compile(root); err != nil {
+			return fmt.Errorf("gonx: %w", err)
+		}
+	}
 	if templ.HasTempl(root) {
 		if err := templ.Compile(root); err != nil {
 			return fmt.Errorf("templ: %w", err)

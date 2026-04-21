@@ -188,6 +188,8 @@ func methodFromName(name string) string {
 func fileToRoutePath(rel string, isPage bool) string {
 	// Remove extensão .go
 	base := strings.TrimSuffix(rel, ".go")
+	// Remove sufixo _gonx (arquivos gerados de .gonx)
+	base = strings.TrimSuffix(base, "_gonx")
 	// Converte separadores de path para /
 	base = filepath.ToSlash(base)
 
