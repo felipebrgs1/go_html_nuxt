@@ -8,20 +8,20 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/a-h/templ"
-	"go_template/app/pages"
+	"go_template/app/models"
 	"go_template/pkg/htmx"
 )
 
 func GetUsersSearch(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query().Get("q")
-	var filtered []pages.User
-	for _, u := range pages.Users {
-		if query == "" || contains(u.Name, query) || contains(u.Email, query) {
+	var filtered []models.User
+	for _, u := range models.Users {
+		if query == "" || models.Contains(u.Name, query) || models.Contains(u.Email, query) {
 			filtered = append(filtered, u)
 		}
 	}
-	templ.Handler(pages.UserTable(filtered)).ServeHTTP(w, r)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	models.RenderUserTable(w, filtered)
 }
 
 func PostUsers(w http.ResponseWriter, r *http.Request) {
@@ -34,19 +34,20 @@ func PostUsers(w http.ResponseWriter, r *http.Request) {
 	email := r.FormValue("email")
 	role := r.FormValue("role")
 
-	newUser := pages.User{
-		ID:     len(pages.Users) + 1,
+	newUser := models.User{
+		ID:     len(models.Users) + 1,
 		Name:   name,
 		Email:  email,
 		Role:   role,
 		Status: "active",
-		Avatar: initials(name),
+		Avatar: models.Initials(name),
 	}
-	pages.Users = append(pages.Users, newUser)
+	models.Users = append(models.Users, newUser)
 
 	if htmx.IsHTMXRequest(r) {
 		htmx.Trigger(w, "userCreated")
-		templ.Handler(pages.UserTable(pages.Users)).ServeHTTP(w, r)
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		models.RenderUserTable(w, models.Users)
 		return
 	}
 
@@ -62,13 +63,13 @@ func DeleteUsers(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("id")
 	id, _ := strconv.Atoi(idStr)
 
-	var filtered []pages.User
-	for _, u := range pages.Users {
+	var filtered []models.User
+	for _, u := range models.Users {
 		if u.ID != id {
 			filtered = append(filtered, u)
 		}
 	}
-	pages.Users = filtered
+	models.Users = filtered
 
 	if htmx.IsHTMXRequest(r) {
 		w.WriteHeader(http.StatusNoContent)
@@ -76,29 +77,6 @@ func DeleteUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
-}
-
-func contains(s, substr string) bool {
-	if substr == "" {
-		return true
-	}
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
-}
-
-func initials(name string) string {
-	if name == "" {
-		return "?"
-	}
-	parts := []rune(name)
-	if len(parts) >= 2 {
-		return string(parts[0]) + string(parts[len(parts)-1])
-	}
-	return string(parts[0])
 }
 </script>
 
