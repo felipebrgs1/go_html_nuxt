@@ -95,6 +95,7 @@ func DeleteUsers(w http.ResponseWriter, r *http.Request) {
 
 	if htmx.IsHTMXRequest(r) {
 		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(""))
 		return
 	}
 
