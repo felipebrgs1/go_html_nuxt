@@ -151,19 +151,19 @@
 								</div>
 							</td>
 							<td class="px-6 py-4 whitespace-nowrap">
-								<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+								{{ call components.Badge("gray") }}
 									{{ _gonx_it.Role }}
-								</span>
+								{{ end }}
 							</td>
 							<td class="px-6 py-4 whitespace-nowrap">
 								{{ if _gonx_it.Status == "active" }}
-								<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+								{{ call components.Badge("green") }}
 									Ativo
-								</span>
+								{{ end }}
 								{{ else }}
-								<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+								{{ call components.Badge("red") }}
 									Inativo
-								</span>
+								{{ end }}
 								{{ end }}
 							</td>
 							<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -180,8 +180,7 @@
 
 	<!-- Sidebar Cards -->
 	<div class="space-y-6">
-		<div class="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow p-6 border border-gray-100">
-			<h3 class="text-lg font-semibold text-gray-800 mb-2">Atividades Recentes</h3>
+		{{ call components.Card("Atividades Recentes") }}
 			<div class="text-gray-600">
 				<ul class="space-y-3">
 					<li class="flex items-start gap-3">
@@ -207,10 +206,9 @@
 					</li>
 				</ul>
 			</div>
-		</div>
+		{{ end }}
 
-		<div class="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow p-6 border border-gray-100">
-			<h3 class="text-lg font-semibold text-gray-800 mb-2">Status do Sistema</h3>
+		{{ call components.Card("Status do Sistema") }}
 			<div class="text-gray-600">
 				<div class="space-y-4">
 					<div>
@@ -242,7 +240,7 @@
 					</div>
 				</div>
 			</div>
-		</div>
+		{{ end }}
 	</div>
 </div>
 

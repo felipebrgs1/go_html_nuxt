@@ -8,7 +8,7 @@
 </template>
 
 <script>
-package layouts
+package components
 
 func Card(title string, children func(io.Writer)) {}
 </script>

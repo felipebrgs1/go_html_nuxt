@@ -51,7 +51,7 @@ func (s *Scanner) scanRecursive(root string) ([]Route, error) {
 		if info.IsDir() {
 			// Pula diretórios internos que não são rotas
 			name := info.Name()
-			if name == "layouts" || name == "models" || strings.HasPrefix(name, ".") {
+			if name == "layouts" || name == "components" || name == "models" || strings.HasPrefix(name, ".") {
 				return filepath.SkipDir
 			}
 			return nil

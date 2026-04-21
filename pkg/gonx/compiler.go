@@ -14,6 +14,8 @@ type Compiler struct {
 	usesIO      bool
 	usesFiber   bool
 	usesLayout  bool
+	usesComponents bool
+	blockStack  []string
 }
 
 func NewCompiler(pf *ParsedFile) *Compiler {
@@ -30,6 +32,8 @@ func (c *Compiler) Compile() (string, error) {
 
 	// Gera o corpo primeiro para saber quais imports são necessários
 	var body strings.Builder
+
+	c.usesComponents = strings.Contains(c.pf.Template, "call components.")
 
 	if c.pf.IsPage {
 		if err := c.compilePage(&body); err != nil {
@@ -76,6 +80,12 @@ func (c *Compiler) buildImports() []string {
 	if c.usesLayout {
 		moduleName := c.pf.ModuleName()
 		imports = append(imports, fmt.Sprintf(`"%s/gonx/app/layouts"`, moduleName))
+	}
+	// Adiciona components se houver diretivas ou uso provável
+	// Pula se já estiver no pacote components ou se não for usado
+	if c.pf.Package != "components" && c.usesComponents {
+		moduleName := c.pf.ModuleName()
+		imports = append(imports, fmt.Sprintf(`"%s/gonx/app/components"`, moduleName))
 	}
 
 	// Imports explícitos do usuário
@@ -134,8 +144,8 @@ func (c *Compiler) compilePage(b *strings.Builder) error {
 	}
 	b.WriteString("}\n\n")
 
-	// Pula geração de handler Fiber para layouts (não são rotas)
-	if strings.Contains(c.pf.FilePath, "app/layouts/") {
+	// Pula geração de handler Fiber para layouts e components (não são rotas)
+	if strings.Contains(c.pf.FilePath, "app/layouts/") || strings.Contains(c.pf.FilePath, "app/components/") {
 		return nil
 	}
 
@@ -179,8 +189,8 @@ func (c *Compiler) findPageLayout() *FuncSignature {
 		}
 	}
 
-	// Fallback automático para layouts.Index se for uma página e não estiver em app/layouts
-	if !strings.Contains(c.pf.FilePath, "app/layouts/") {
+	// Fallback automático para layouts.Index se for uma página e não estiver em layouts ou components
+	if !strings.Contains(c.pf.FilePath, "app/layouts/") && !strings.Contains(c.pf.FilePath, "app/components/") {
 		return &FuncSignature{
 			LayoutPkg:  "layouts",
 			LayoutFunc: "Index",
@@ -305,6 +315,7 @@ func (c *Compiler) compileExpr(b *strings.Builder, expr string, indent int) erro
 	if strings.HasPrefix(expr, "if ") {
 		cond := strings.TrimPrefix(expr, "if ")
 		b.WriteString(tabs + "if " + cond + " {\n")
+		c.blockStack = append(c.blockStack, "if")
 		return nil
 	}
 	if strings.HasPrefix(expr, "else if ") {
@@ -317,13 +328,50 @@ func (c *Compiler) compileExpr(b *strings.Builder, expr string, indent int) erro
 		return nil
 	}
 	if expr == "end" {
-		b.WriteString(tabs + "}\n")
+		if len(c.blockStack) > 0 {
+			last := c.blockStack[len(c.blockStack)-1]
+			c.blockStack = c.blockStack[:len(c.blockStack)-1]
+			if last == "call" {
+				b.WriteString(tabs + "})\n")
+			} else {
+				b.WriteString(tabs + "}\n")
+			}
+		} else {
+			b.WriteString(tabs + "}\n")
+		}
 		return nil
 	}
 
 	if strings.HasPrefix(expr, "range ") {
 		items := strings.TrimPrefix(expr, "range ")
 		b.WriteString(tabs + "for _, _gonx_it := range " + items + " {\n")
+		c.blockStack = append(c.blockStack, "for")
+		return nil
+	}
+
+	if strings.HasPrefix(expr, "call ") {
+		call := strings.TrimPrefix(expr, "call ")
+		c.blockStack = append(c.blockStack, "call")
+		// Converte Package.Func para Package.RenderFunc ou Func para RenderFunc
+		dotIdx := strings.LastIndex(call, ".")
+		parenIdx := strings.Index(call, "(")
+		if parenIdx == -1 {
+			parenIdx = len(call)
+		}
+
+		if dotIdx != -1 && dotIdx < parenIdx {
+			call = call[:dotIdx+1] + "Render" + call[dotIdx+1:]
+		} else {
+			call = "Render" + call
+		}
+
+		// Se tem parênteses, insere w antes deles. Se não, adiciona (w,
+		if strings.Contains(call, "(") {
+			call = strings.Replace(call, "(", "(w, ", 1)
+			b.WriteString(tabs + fmt.Sprintf("%s, func(w io.Writer) {\n", strings.TrimSuffix(call, ")")))
+		} else {
+			b.WriteString(tabs + fmt.Sprintf("%s(w, func(w io.Writer) {\n", call))
+		}
 		return nil
 	}
 
