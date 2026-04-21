@@ -16,7 +16,7 @@ func Generate(root string, routes []router.Route) error {
 		return nil
 	}
 
-	outDir := filepath.Join(root, ".framework")
+	outDir := filepath.Join(root, "framework_gen")
 	if err := os.MkdirAll(outDir, 0755); err != nil {
 		return err
 	}
@@ -72,11 +72,11 @@ func RegisterRoutes(mux *http.ServeMux) {
 
 func aliasFromPath(path string) string {
 	// Se for path de .gonx, cria alias distinto para evitar conflito
-	if strings.Contains(path, "/.gonx/") {
+	if strings.Contains(path, "/gonx/") {
 		parts := strings.Split(path, "/")
 		var segs []string
 		for i, p := range parts {
-			if p == ".gonx" && i+1 < len(parts) {
+			if p == "gonx" && i+1 < len(parts) {
 				segs = parts[i+1:]
 				break
 			}

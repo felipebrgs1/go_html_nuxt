@@ -76,11 +76,18 @@ func findProjectRoot(filePath string) string {
 
 func extractBlock(content, tag string) string {
 	re := regexp.MustCompile(`(?s)<` + tag + `[^>]*>(.*?)</` + tag + `>`)
-	matches := re.FindStringSubmatch(content)
-	if len(matches) >= 2 {
-		return strings.TrimSpace(matches[1])
+	matches := re.FindAllStringSubmatch(content, -1)
+	if len(matches) == 0 {
+		return ""
 	}
-	return ""
+	// Pega o match com maior conteúdo para evitar tags vazias no template
+	best := ""
+	for _, m := range matches {
+		if len(m) >= 2 && len(strings.TrimSpace(m[1])) > len(best) {
+			best = strings.TrimSpace(m[1])
+		}
+	}
+	return best
 }
 
 func (pf *ParsedFile) parseScript() error {
@@ -311,5 +318,5 @@ func (pf *ParsedFile) OutputPath() string {
 	base := filepath.Base(rel)
 	name := strings.TrimSuffix(base, filepath.Ext(base))
 	dir := filepath.Dir(rel)
-	return filepath.Join(pf.Root, ".gonx", dir, name+".go")
+	return filepath.Join(pf.Root, "gonx", dir, name+".go")
 }

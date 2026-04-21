@@ -109,8 +109,8 @@ func (s *Scanner) scanDir(dir, prefix string, isPage, isAPI bool) ([]Route, erro
 				return fmt.Errorf("erro ao parsear %s: %w", path, err)
 			}
 
-			// Import path aponta para .gonx/<prefix>/<dir>
-			gonxPrefix := ".gonx/" + prefix
+			// Import path aponta para gonx/<prefix>/<dir>
+			gonxPrefix := "gonx/" + prefix
 			pkgImport := filepath.Join(s.moduleName(), gonxPrefix, filepath.Dir(rel))
 			if filepath.Dir(rel) == "." {
 				pkgImport = filepath.Join(s.moduleName(), gonxPrefix)

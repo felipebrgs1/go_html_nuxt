@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"go_template/.framework"
+	"go_template/framework_gen"
 )
 
 func main() {
