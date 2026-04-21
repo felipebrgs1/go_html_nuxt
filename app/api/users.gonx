@@ -54,6 +54,28 @@ func PostUsers(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
 }
 
+func PutUsers(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	id, _ := strconv.Atoi(r.FormValue("id"))
+	name := r.FormValue("name")
+	email := r.FormValue("email")
+	role := r.FormValue("role")
+	status := r.FormValue("status")
+
+	if !models.UpdateUser(id, name, email, role, status) {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	u, _ := models.FindUserByID(id)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	models.RenderUserRow(w, u)
+}
+
 func DeleteUsers(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -72,7 +94,7 @@ func DeleteUsers(w http.ResponseWriter, r *http.Request) {
 	models.Users = filtered
 
 	if htmx.IsHTMXRequest(r) {
-		w.WriteHeader(http.StatusNoContent)
+		w.WriteHeader(http.StatusOK)
 		return
 	}
 

@@ -57,9 +57,9 @@ func ParseFile(path string) (*ParsedFile, error) {
 	pf.PageName = fileToHandlerName(path)
 
 	// Extrai blocos <template>, <script>, <style>
-	pf.Template = extractBlock(string(content), "template")
-	pf.Script = extractBlock(string(content), "script")
-	pf.Style = extractBlock(string(content), "style")
+	pf.Template = ExtractBlock(string(content), "template")
+	pf.Script = ExtractBlock(string(content), "script")
+	pf.Style = ExtractBlock(string(content), "style")
 
 	// Parse o script para extrair package, imports e funções
 	if err := pf.parseScript(); err != nil {
@@ -104,7 +104,7 @@ func findProjectRoot(filePath string) string {
 	return dir
 }
 
-func extractBlock(content, tag string) string {
+func ExtractBlock(content, tag string) string {
 	re := regexp.MustCompile(`(?s)<` + tag + `[^>]*>(.*?)</` + tag + `>`)
 	matches := re.FindAllStringSubmatch(content, -1)
 	if len(matches) == 0 {

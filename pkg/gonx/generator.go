@@ -18,8 +18,14 @@ func HasGonx(root string) bool {
 			found = true
 			return filepath.SkipAll
 		}
-		if info.IsDir() && (strings.HasPrefix(info.Name(), ".") || info.Name() == "node_modules" || info.Name() == "vendor") {
-			return filepath.SkipDir
+		if info.IsDir() {
+			if strings.HasPrefix(info.Name(), ".") && info.Name() != "." && info.Name() != ".." {
+				return filepath.SkipDir
+			}
+			if info.Name() == "node_modules" || info.Name() == "vendor" {
+				return filepath.SkipDir
+			}
+			return nil
 		}
 		return nil
 	})
