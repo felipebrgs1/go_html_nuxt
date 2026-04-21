@@ -13,6 +13,7 @@ type Compiler struct {
 	usesHtml    bool
 	usesIO      bool
 	usesFiber   bool
+	usesLayout  bool
 }
 
 func NewCompiler(pf *ParsedFile) *Compiler {
@@ -72,6 +73,10 @@ func (c *Compiler) buildImports() []string {
 	if c.usesFiber {
 		imports = append(imports, `"github.com/gofiber/fiber/v2"`)
 	}
+	if c.usesLayout {
+		moduleName := c.pf.ModuleName()
+		imports = append(imports, fmt.Sprintf(`"%s/gonx/app/layouts"`, moduleName))
+	}
 
 	// Imports explícitos do usuário
 	imports = append(imports, c.pf.Imports...)
@@ -107,18 +112,38 @@ func (c *Compiler) compilePage(b *strings.Builder) error {
 	pageName := c.pf.PageName
 	renderName := "Render" + pageName
 
-	// Gera Render<PageName>(w io.Writer, c *fiber.Ctx)
+	// Tenta encontrar o stub da função atual no script para pegar os parâmetros
+	var stub *FuncSignature
+	for _, fn := range c.pf.Funcs {
+		if fn.Name == pageName && !fn.HasBody {
+			stub = &fn
+			break
+		}
+	}
+
+	params := "w io.Writer, c *fiber.Ctx"
+	if stub != nil && stub.Params != "" {
+		params = "w io.Writer, " + stub.Params
+	}
+
+	// Gera Render<PageName>(w io.Writer, ...)
 	c.usesIO = true
-	b.WriteString(fmt.Sprintf("func %s(w io.Writer, c *fiber.Ctx) {\n", renderName))
+	b.WriteString(fmt.Sprintf("func %s(%s) {\n", renderName, params))
 	if err := c.compileTemplateBody(b, c.pf.Template, 1); err != nil {
 		return err
 	}
 	b.WriteString("}\n\n")
 
+	// Pula geração de handler Fiber para layouts (não são rotas)
+	if strings.Contains(c.pf.FilePath, "app/layouts/") {
+		return nil
+	}
+
 	// Gera handler Fiber
 	c.usesFiber = true
 	layout := c.findPageLayout()
 	if layout != nil {
+		c.usesLayout = true
 		layoutCall := layout.LayoutPkg + ".Render" + layout.LayoutFunc
 		b.WriteString(fmt.Sprintf("func %s(c *fiber.Ctx) error {\n", pageName))
 		b.WriteString("\tw := c.Response().BodyWriter()\n")
@@ -147,11 +172,22 @@ func (c *Compiler) compilePage(b *strings.Builder) error {
 // findPageLayout procura uma função stub no script com o nome da página
 // que tenha diretivas de layout
 func (c *Compiler) findPageLayout() *FuncSignature {
+	// Procura layout explícito no script
 	for _, fn := range c.pf.Funcs {
 		if fn.Name == c.pf.PageName && !fn.HasBody && fn.LayoutPkg != "" && fn.LayoutFunc != "" {
 			return &fn
 		}
 	}
+
+	// Fallback automático para layouts.Index se for uma página e não estiver em app/layouts
+	if !strings.Contains(c.pf.FilePath, "app/layouts/") {
+		return &FuncSignature{
+			LayoutPkg:  "layouts",
+			LayoutFunc: "Index",
+			LayoutArgs: "\"Go Framework\"", // Título padrão
+		}
+	}
+
 	return nil
 }
 

@@ -250,7 +250,7 @@
 </template>
 
 <script>
-package pages
+package app
 
 import (
 	"strconv"
@@ -258,7 +258,7 @@ import (
 	"go_template/app/models"
 )
 
-//gonx:layout layouts.Base
+//gonx:layout layouts.Index
 //gonx:layout-args "Dashboard"
 func Dashboard(c *fiber.Ctx) error {}
 </script>

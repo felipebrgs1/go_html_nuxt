@@ -21,7 +21,7 @@
 			<p class="text-gray-500 text-sm">Tela completa com cards, tabela, busca HTMX, form modal e Tailwind.</p>
 		</a>
 
-		<a href="/users/42" class="block p-6 bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow border border-gray-100 text-left">
+		<a href="/user/42" class="block p-6 bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow border border-gray-100 text-left">
 			<div class="flex items-center mb-3">
 				<div class="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center mr-3">
 					<svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -77,11 +77,11 @@
 </template>
 
 <script>
-package pages
+package app
 
 import "github.com/gofiber/fiber/v2"
 
-//gonx:layout layouts.Base
+//gonx:layout layouts.Index
 //gonx:layout-args "Framework Go + HTMX"
 func Index(c *fiber.Ctx) error {}
 </script>

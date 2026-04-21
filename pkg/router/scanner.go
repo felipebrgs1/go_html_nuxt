@@ -33,119 +33,94 @@ func NewScanner(root string) *Scanner {
 }
 
 func (s *Scanner) Scan() ([]Route, error) {
-	var routes []Route
-
-	pagesDir := filepath.Join(s.root, "app", "pages")
-	apiDir := filepath.Join(s.root, "app", "api")
-
-	if _, err := os.Stat(pagesDir); err == nil {
-		rs, err := s.scanDir(pagesDir, "app/pages", true, false)
-		if err != nil {
-			return nil, err
-		}
-		routes = append(routes, rs...)
+	appDir := filepath.Join(s.root, "app")
+	if _, err := os.Stat(appDir); err != nil {
+		return nil, nil
 	}
 
-	if _, err := os.Stat(apiDir); err == nil {
-		rs, err := s.scanDir(apiDir, "app/api", false, true)
-		if err != nil {
-			return nil, err
-		}
-		routes = append(routes, rs...)
-	}
-
-	return routes, nil
+	return s.scanRecursive(appDir)
 }
 
-func (s *Scanner) scanDir(dir, prefix string, isPage, isAPI bool) ([]Route, error) {
+func (s *Scanner) scanRecursive(root string) ([]Route, error) {
 	var routes []Route
 
-	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 		if info.IsDir() {
+			// Pula diretórios internos que não são rotas
+			name := info.Name()
+			if name == "layouts" || name == "models" || strings.HasPrefix(name, ".") {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 
-		rel, err := filepath.Rel(dir, path)
+		rel, err := filepath.Rel(root, path)
 		if err != nil {
 			return err
 		}
 
-		// Arquivos .go tradicionais
-		if strings.HasSuffix(path, ".go") && !strings.HasSuffix(path, "_test.go") {
-			routePath := fileToRoutePath(rel, isPage)
-			handlers, err := s.parseHandlers(path)
-			if err != nil {
-				return fmt.Errorf("erro ao parsear %s: %w", path, err)
-			}
+		// Determina se é Página ou API baseado na extensão e localização
+		isGonx := strings.HasSuffix(path, ".gonx")
+		isGo := strings.HasSuffix(path, ".go") && !strings.HasSuffix(path, "_test.go")
 
-			pkgImport := filepath.Join(s.moduleName(), prefix, filepath.Dir(rel))
-			if filepath.Dir(rel) == "." {
-				pkgImport = filepath.Join(s.moduleName(), prefix)
-			}
-
-			for _, h := range handlers {
-				routes = append(routes, Route{
-					Method:      h.method,
-					Pattern:     routePath,
-					FilePath:    path,
-					PackagePath: pkgImport,
-					HandlerName: h.name,
-					IsPage:      isPage,
-					IsAPI:       isAPI,
-				})
-			}
+		if !isGonx && !isGo {
 			return nil
 		}
 
-		// Arquivos .gonx (templates compilados para .gonx/)
-		if strings.HasSuffix(path, ".gonx") {
-			routePath := fileToRoutePath(rel, isPage)
+		// Import path base para o pacote
+		// O prefixo depende se é código gerado (.gonx -> gonx/app/...) ou original (.go -> app/...)
+		prefix := "app"
+		if isGonx {
+			prefix = "gonx/app"
+		}
 
+		pkgImport := filepath.Join(s.moduleName(), prefix, filepath.Dir(rel))
+		if filepath.Dir(rel) == "." {
+			pkgImport = filepath.Join(s.moduleName(), prefix)
+		}
+
+		if isGonx {
 			pf, err := gonx.ParseFile(path)
 			if err != nil {
 				return fmt.Errorf("erro ao parsear %s: %w", path, err)
 			}
 
-			// Import path aponta para gonx/<prefix>/<dir>
-			gonxPrefix := "gonx/" + prefix
-			pkgImport := filepath.Join(s.moduleName(), gonxPrefix, filepath.Dir(rel))
-			if filepath.Dir(rel) == "." {
-				pkgImport = filepath.Join(s.moduleName(), gonxPrefix)
+			// .gonx são sempre páginas
+			routes = append(routes, Route{
+				Method:      "GET",
+				Pattern:     fileToRoutePath(rel, true),
+				FilePath:    path,
+				PackagePath: pkgImport,
+				HandlerName: pf.PageName,
+				IsPage:      true,
+				IsAPI:       false,
+			})
+		} else if isGo {
+			handlers, err := s.parseHandlers(path)
+			if err != nil {
+				return fmt.Errorf("erro ao parsear %s: %w", path, err)
 			}
 
-			if isPage {
-				// Páginas: rota automática baseada no nome do arquivo
+			for _, h := range handlers {
+				pattern := fileToRoutePath(rel, false)
+				handlerSuffix := cleanHandlerName(h.name)
+				if handlerSuffix != "" {
+					pattern = filepath.Join(pattern, handlerSuffix)
+				}
+				
 				routes = append(routes, Route{
-					Method:      "GET",
-					Pattern:     routePath,
+					Method:      h.method,
+					Pattern:     filepath.ToSlash(pattern),
 					FilePath:    path,
 					PackagePath: pkgImport,
-					HandlerName: pf.PageName,
-					IsPage:      true,
-					IsAPI:       false,
+					HandlerName: h.name,
+					IsPage:      false,
+					IsAPI:       true,
 				})
-			} else {
-				// APIs: usa funções do script como handlers
-				for _, fn := range pf.Funcs {
-					if !isGonxHandler(fn) {
-						continue
-					}
-					method := methodFromName(fn.Name)
-					routes = append(routes, Route{
-						Method:      method,
-						Pattern:     routePath,
-						FilePath:    path,
-						PackagePath: pkgImport,
-						HandlerName: fn.Name,
-						IsPage:      false,
-						IsAPI:       true,
-					})
-				}
 			}
-			return nil
 		}
 
 		return nil
@@ -245,6 +220,15 @@ func methodFromName(name string) string {
 	}
 }
 
+func cleanHandlerName(name string) string {
+	name = strings.TrimPrefix(name, "Get")
+	name = strings.TrimPrefix(name, "Post")
+	name = strings.TrimPrefix(name, "Put")
+	name = strings.TrimPrefix(name, "Delete")
+	name = strings.TrimPrefix(name, "Patch")
+	return strings.ToLower(name)
+}
+
 func fileToRoutePath(rel string, isPage bool) string {
 	// Remove extensão .go ou .gonx
 	base := strings.TrimSuffix(rel, ".go")
@@ -252,25 +236,43 @@ func fileToRoutePath(rel string, isPage bool) string {
 	// Converte separadores de path para /
 	base = filepath.ToSlash(base)
 
-	// index.go -> /
+	// api.go na raiz ou em subpastas
+	if base == "api" || strings.HasSuffix(base, "/api") {
+		base = strings.TrimSuffix(base, "api")
+		base = strings.TrimSuffix(base, "/")
+		if base == "" {
+			return "/api"
+		}
+		// _id -> {id}
+		parts := strings.Split(base, "/")
+		for i, p := range parts {
+			if strings.HasPrefix(p, "_") {
+				parts[i] = ":" + p[1:]
+			}
+		}
+		base = strings.Join(parts, "/")
+		return "/api/" + base
+	}
+
+	// index.gonx -> /
 	if base == "index" || strings.HasSuffix(base, "/index") {
 		base = strings.TrimSuffix(base, "index")
 		base = strings.TrimSuffix(base, "/")
 		if base == "" {
 			return "/"
 		}
-		// _id ou [id] -> {id}
+		// _id -> {id}
 		parts := strings.Split(base, "/")
 		for i, p := range parts {
 			if strings.HasPrefix(p, "_") {
-				parts[i] = "{" + p[1:] + "}"
+				parts[i] = ":" + p[1:]
 			}
 		}
 		base = strings.Join(parts, "/")
 		return "/" + base
 	}
 
-	// _id ou [id] -> {id}
+	// _id -> {id}
 	parts := strings.Split(base, "/")
 	for i, p := range parts {
 		if strings.HasPrefix(p, "_") {
@@ -282,6 +284,6 @@ func fileToRoutePath(rel string, isPage bool) string {
 	if isPage {
 		return "/" + base
 	}
-	// API routes prefixam com /api
+	// Outros arquivos .go que não se chamam api.go também são mapeados como /api/...
 	return "/api/" + base
 }

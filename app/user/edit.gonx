@@ -2,7 +2,7 @@
 </template>
 
 <script>
-package api
+package user
 
 import (
 	"strconv"

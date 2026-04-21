@@ -19,7 +19,7 @@
 <script>
 package layouts
 
-func Base(title string, children func(io.Writer)) {}
+func Index(title string, children func(io.Writer)) {}
 </script>
 
 <style>

@@ -1,0 +1,6 @@
+# Framework Linting Config
+[rules]
+no-orphan-templ = "warning"
+handler-signature = "error"
+html-balanced = "warning"
+htmx-target = "info"

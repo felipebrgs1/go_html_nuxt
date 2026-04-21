@@ -39,7 +39,19 @@ type FuncSignature struct {
 	BodySource string // texto completo da função no script
 }
 
-// ParseFile lê e parseia um arquivo .gonx
+func (pf *ParsedFile) ModuleName() string {
+	data, err := os.ReadFile(filepath.Join(pf.Root, "go.mod"))
+	if err != nil {
+		return ""
+	}
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		if strings.HasPrefix(line, "module ") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "module "))
+		}
+	}
+	return ""
+}
 func ParseFile(path string) (*ParsedFile, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
@@ -50,10 +62,8 @@ func ParseFile(path string) (*ParsedFile, error) {
 	pf := &ParsedFile{FilePath: path, Root: root}
 
 	// Detecta se é página ou API
-	rel, _ := filepath.Rel(root, path)
-	relSlash := filepath.ToSlash(rel)
-	pf.IsPage = strings.HasPrefix(relSlash, "app/pages/")
-	pf.IsAPI = strings.HasPrefix(relSlash, "app/api/")
+	pf.IsPage = filepath.Ext(path) == ".gonx"
+	pf.IsAPI = !pf.IsPage
 	pf.PageName = fileToHandlerName(path)
 
 	// Extrai blocos <template>, <script>, <style>

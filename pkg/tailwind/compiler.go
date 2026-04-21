@@ -11,7 +11,7 @@ import (
 
 // Compile roda `tailwindcss -i input.css -o public/styles.css` ou build único
 func Compile(root string) error {
-	input := filepath.Join(root, "public", "input.css")
+	input := filepath.Join(root, "assets", "global.css")
 	output := filepath.Join(root, "public", "styles.css")
 	config := filepath.Join(root, "tailwind.config.js")
 
@@ -60,6 +60,6 @@ func findTailwindBin(root string) string {
 
 // HasTailwind verifica se existe public/input.css
 func HasTailwind(root string) bool {
-	_, err := os.Stat(filepath.Join(root, "public", "input.css"))
+	_, err := os.Stat(filepath.Join(root, "assets", "global.css"))
 	return err == nil
 }

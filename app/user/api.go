@@ -1,8 +1,4 @@
-<template>
-</template>
-
-<script>
-package api
+package user
 
 import (
 	"strconv"
@@ -83,7 +79,3 @@ func DeleteUsers(c *fiber.Ctx) error {
 
 	return c.Redirect("/dashboard", fiber.StatusSeeOther)
 }
-</script>
-
-<style>
-</style>
