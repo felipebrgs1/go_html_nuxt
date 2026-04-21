@@ -24,4 +24,6 @@ install:
 clean:
 	rm -f $(BINARY_NAME)
 	rm -rf .framework/
+	find . -name "*_templ.go" -delete
+	find . -name "styles.css" -path "*/public/*" -delete
 	@echo "🧹 Limpo"

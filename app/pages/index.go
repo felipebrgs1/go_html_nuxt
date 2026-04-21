@@ -1,10 +1,11 @@
 package pages
 
 import (
-	"fmt"
 	"net/http"
+
+	"github.com/a-h/templ"
 )
 
 func Index(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "<h1>Hello users from Framework!</h1>")
+	templ.Handler(IndexPage()).ServeHTTP(w, r)
 }

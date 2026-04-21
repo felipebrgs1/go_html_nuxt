@@ -1,4 +1,29 @@
-/.framework
-/roadmap.md
-gramek
+# Binários
 framework
+
+# Arquivos gerados
+.framework/
+*_templ.go
+public/styles.css
+
+# Tailwind CLI (baixado automaticamente)
+tailwindcss
+# Go
+vendor/
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

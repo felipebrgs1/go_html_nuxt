@@ -1,0 +1,19 @@
+package layouts
+
+templ Base(title string) {
+	<!DOCTYPE html>
+	<html lang="pt-BR">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<title>{ title }</title>
+			<script src="https://unpkg.com/htmx.org@1.9.12" integrity="sha384-PLTgULq6L8Ef2P0xXtA4U6T2g6n4U4Qf2lY3Q5f7k9m0n2b4c6d8e0f2g4h6i8j0k" crossorigin="anonymous"></script>
+			<link rel="stylesheet" href="/styles.css"/>
+		</head>
+		<body class="bg-gray-50 text-gray-900 min-h-screen">
+			<main class="container mx-auto px-4 py-8">
+				{ children... }
+			</main>
+		</body>
+	</html>
+}

@@ -11,10 +11,11 @@ import (
 )
 
 type DevServer struct {
-	root    string
-	cmd     *exec.Cmd
-	mu      sync.Mutex
-	port    string
+	root        string
+	cmd         *exec.Cmd
+	mu          sync.Mutex
+	port        string
+	shuttingDown bool
 }
 
 func NewDevServer(root string) *DevServer {
@@ -35,9 +36,12 @@ func (s *DevServer) Restart() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	_ = s.stopProcess()
-	// Aguarda liberação da porta (TIME_WAIT no Linux)
-	time.Sleep(500 * time.Millisecond)
+	if s.shuttingDown {
+		return
+	}
+
+	_ = s.stopProcessLocked()
+	time.Sleep(300 * time.Millisecond)
 	if err := s.startProcess(); err != nil {
 		fmt.Printf("Erro ao reiniciar servidor: %v\n", err)
 	}
@@ -45,12 +49,38 @@ func (s *DevServer) Restart() {
 
 func (s *DevServer) Stop() error {
 	s.mu.Lock()
+	s.shuttingDown = true
+	s.mu.Unlock()
+
+	time.Sleep(100 * time.Millisecond)
+
+	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	return s.stopProcess()
+	return s.stopProcessLocked()
+}
+
+func (s *DevServer) Kill() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.shuttingDown = true
+	if s.cmd == nil || s.cmd.Process == nil {
+		return
+	}
+
+	pgid, err := syscall.Getpgid(s.cmd.Process.Pid)
+	if err == nil && pgid > 0 {
+		_ = syscall.Kill(-pgid, syscall.SIGKILL)
+	}
+	_ = s.cmd.Process.Kill()
 }
 
 func (s *DevServer) startProcess() error {
+	if s.shuttingDown {
+		return nil
+	}
+
 	entry := s.findEntryPoint()
 	if entry == "" {
 		fmt.Println("⚠️  Nenhum ponto de entrada encontrado. Aguardando...")
@@ -62,7 +92,6 @@ func (s *DevServer) startProcess() error {
 	s.cmd.Stdout = os.Stdout
 	s.cmd.Stderr = os.Stderr
 	s.cmd.Env = append(os.Environ(), fmt.Sprintf("PORT=%s", s.port))
-	// Cria novo grupo de processos para poder matar todos os filhos (incluindo o binário compilado)
 	s.cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
 	}
@@ -71,18 +100,18 @@ func (s *DevServer) startProcess() error {
 	return s.cmd.Start()
 }
 
-func (s *DevServer) stopProcess() error {
+func (s *DevServer) stopProcessLocked() error {
 	if s.cmd == nil || s.cmd.Process == nil {
 		return nil
 	}
 
-	// Mata o grupo de processos inteiro (go run + binário compilado)
 	pgid, err := syscall.Getpgid(s.cmd.Process.Pid)
-	if err == nil {
+	if err == nil && pgid > 0 {
 		_ = syscall.Kill(-pgid, syscall.SIGTERM)
+	} else {
+		_ = s.cmd.Process.Signal(syscall.SIGTERM)
 	}
 
-	// Aguarda término com timeout
 	done := make(chan struct{})
 	go func() {
 		_ = s.cmd.Wait()
@@ -92,8 +121,7 @@ func (s *DevServer) stopProcess() error {
 	select {
 	case <-done:
 		return nil
-	case <-time.After(2 * time.Second):
-		// Força kill no grupo
+	case <-time.After(800 * time.Millisecond):
 		if pgid > 0 {
 			_ = syscall.Kill(-pgid, syscall.SIGKILL)
 		}

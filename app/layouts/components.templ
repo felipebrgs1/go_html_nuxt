@@ -1,0 +1,41 @@
+package layouts
+
+templ Card(title string) {
+	<div class="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow p-6 border border-gray-100">
+		<h3 class="text-lg font-semibold text-gray-800 mb-2">{ title }</h3>
+		<div class="text-gray-600">
+			{ children... }
+		</div>
+	</div>
+}
+
+templ Badge(color string) {
+	<span class={ "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium", "bg-" + color + "-100 text-" + color + "-800" }>
+		{ children... }
+	</span>
+}
+
+templ Button(variant string, attrs templ.Attributes) {
+	if variant == "primary" {
+		<button
+			class="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+			{ attrs... }
+		>
+			{ children... }
+		</button>
+	} else if variant == "secondary" {
+		<button
+			class="inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+			{ attrs... }
+		>
+			{ children... }
+		</button>
+	} else {
+		<button
+			class="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+			{ attrs... }
+		>
+			{ children... }
+		</button>
+	}
+}

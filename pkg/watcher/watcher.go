@@ -5,16 +5,20 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
 )
 
 type FileWatcher struct {
-	watcher  *fsnotify.Watcher
-	root     string
-	onChange func()
-	debounce *time.Timer
+	watcher     *fsnotify.Watcher
+	root        string
+	onChange    func()
+	debounce    *time.Timer
+	disabled    atomic.Bool
+	cooldownEnd atomic.Value // time.Time
 }
 
 func NewFileWatcher(root string, onChange func()) (*FileWatcher, error) {
@@ -31,13 +35,20 @@ func NewFileWatcher(root string, onChange func()) (*FileWatcher, error) {
 }
 
 func (fw *FileWatcher) Start(ctx context.Context) error {
-	// Adiciona diretórios recursivamente
 	if err := fw.addDirs(fw.root); err != nil {
 		return err
 	}
 
 	go fw.loop(ctx)
 	return nil
+}
+
+func (fw *FileWatcher) Disable() {
+	fw.disabled.Store(true)
+}
+
+func (fw *FileWatcher) SetCooldown(d time.Duration) {
+	fw.cooldownEnd.Store(time.Now().Add(d))
 }
 
 func (fw *FileWatcher) addDirs(root string) error {
@@ -49,9 +60,10 @@ func (fw *FileWatcher) addDirs(root string) error {
 			return nil
 		}
 
-		// Ignora diretórios comuns que não devem ser observados
 		base := filepath.Base(path)
-		if base == ".git" || base == "node_modules" || base == "vendor" || base == "tmp" || base == ".framework" {
+		// Ignora diretórios que causam loops ou não são código-fonte
+		if base == ".git" || base == "node_modules" || base == "vendor" ||
+			base == "tmp" || base == ".framework" || base == "public" {
 			return filepath.SkipDir
 		}
 
@@ -81,29 +93,46 @@ func (fw *FileWatcher) loop(ctx context.Context) {
 }
 
 func (fw *FileWatcher) shouldTrigger(event fsnotify.Event) bool {
-	// Ignora arquivos que não são .go ou .templ
+	if fw.disabled.Load() {
+		return false
+	}
+
+	if end, ok := fw.cooldownEnd.Load().(time.Time); ok && time.Now().Before(end) {
+		return false
+	}
+
 	ext := filepath.Ext(event.Name)
 	if ext != ".go" && ext != ".templ" {
 		return false
 	}
 
-	// Reage a criação, escrita e renomeio
+	base := filepath.Base(event.Name)
+	if strings.HasSuffix(base, "_templ.go") {
+		return false
+	}
+
 	return event.Op&fsnotify.Write == fsnotify.Write ||
 		event.Op&fsnotify.Create == fsnotify.Create ||
 		event.Op&fsnotify.Rename == fsnotify.Rename
 }
 
 func (fw *FileWatcher) trigger() {
-	// Debounce para evitar múltiplos reinícios rápidos
 	if fw.debounce != nil {
 		fw.debounce.Stop()
 	}
-	fw.debounce = time.AfterFunc(300*time.Millisecond, func() {
+	fw.debounce = time.AfterFunc(400*time.Millisecond, func() {
+		if fw.disabled.Load() {
+			return
+		}
 		fmt.Println("🔄 Mudança detectada. Reiniciando servidor...")
 		fw.onChange()
 	})
 }
 
 func (fw *FileWatcher) Close() error {
+	fw.disabled.Store(true)
+	if fw.debounce != nil {
+		fw.debounce.Stop()
+	}
 	return fw.watcher.Close()
 }
