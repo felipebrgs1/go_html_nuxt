@@ -201,11 +201,11 @@ func fileToRoutePath(rel string, isPage bool) string {
 		return "/" + base
 	}
 
-	// [id].go -> {id}
+	// _id ou [id] -> {id}
 	parts := strings.Split(base, "/")
 	for i, p := range parts {
-		if strings.HasPrefix(p, "[") && strings.HasSuffix(p, "]") {
-			parts[i] = "{" + p[1:len(p)-1] + "}"
+		if strings.HasPrefix(p, "_") {
+			parts[i] = "{" + p[1:] + "}"
 		}
 	}
 	base = strings.Join(parts, "/")

@@ -71,11 +71,23 @@ func RegisterRoutes(mux *http.ServeMux) {
 }
 
 func aliasFromPath(path string) string {
-	// Cria um alias único baseado no último segmento do path
+	// Cria um alias válido baseado no último segmento do path
 	parts := strings.Split(path, "/")
 	alias := parts[len(parts)-1]
-	// Remove caracteres inválidos para identificador
+
+	// Sanitiza para identificador Go válido
 	alias = strings.ReplaceAll(alias, "-", "_")
 	alias = strings.ReplaceAll(alias, ".", "_")
+	alias = strings.ReplaceAll(alias, "[", "")
+	alias = strings.ReplaceAll(alias, "]", "")
+
+	// Remove underscore inicial (parâmetros dinâmicos: _id -> id)
+	alias = strings.TrimPrefix(alias, "_")
+
+	// Se começar com dígito, prefixa com underscore
+	if len(alias) > 0 && alias[0] >= '0' && alias[0] <= '9' {
+		alias = "_" + alias
+	}
+
 	return alias
 }
