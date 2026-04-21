@@ -1,0 +1,35 @@
+{
+  "name": "gonx-vscode",
+  "displayName": "Gonx Support",
+  "description": "Syntax highlighting for .gonx files",
+  "version": "0.1.0",
+  "publisher": "antigravity",
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [{
+      "id": "gonx",
+      "aliases": ["Gonx", "gonx"],
+      "extensions": [".gonx"],
+      "icon": {
+        "light": "./media/go-logo-blue.png",
+        "dark": "./media/go-logo-blue.png"
+      },
+      "configuration": "./gonx-configuration.json"
+    }],
+    "grammars": [{
+      "language": "gonx",
+      "scopeName": "source.gonx",
+      "path": "./syntaxes/gonx.tmLanguage.json",
+      "embeddedLanguages": {
+        "text.html.basic": "html",
+        "source.go": "go",
+        "source.css": "css"
+      }
+    }]
+  }
+}
