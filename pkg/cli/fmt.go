@@ -125,8 +125,14 @@ func formatBlock(src string, re *regexp.Regexp, fn func(string) (string, error))
 
 // runGofmt pipes content through `gofmt`.
 func runGofmt(script string) (string, error) {
-	// gofmt needs a valid Go file, but <script> may omit the package declaration.
-	needsPackage := !strings.Contains(strings.TrimSpace(script), "package ")
+	// gofmt needs a valid Go file.
+	// If it doesn't have a package, we inject one.
+	trimmed := strings.TrimSpace(script)
+	if trimmed == "" {
+		return "", nil
+	}
+
+	needsPackage := !strings.Contains(trimmed, "package ")
 	input := script
 	if needsPackage {
 		input = "package _gonx_fmt\n" + script
@@ -144,13 +150,20 @@ func runGofmt(script string) (string, error) {
 
 	result := out.String()
 	if needsPackage {
-		// Remove the injected package line
-		idx := strings.Index(result, "\n")
-		if idx >= 0 {
-			result = result[idx:]
+		// More robust removal: find the first line that starts with 'package ' and remove it
+		lines := strings.Split(result, "\n")
+		var filtered []string
+		found := false
+		for _, line := range lines {
+			if !found && strings.HasPrefix(strings.TrimSpace(line), "package _gonx_fmt") {
+				found = true
+				continue
+			}
+			filtered = append(filtered, line)
 		}
+		result = strings.Join(filtered, "\n")
 	}
-	return result, nil
+	return strings.TrimSpace(result), nil
 }
 
 // runPrettierOn formats content using prettier with the given parser.

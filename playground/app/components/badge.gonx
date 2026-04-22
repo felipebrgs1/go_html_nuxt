@@ -1,7 +1,7 @@
 <template>
 
   <span
-    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-​ ​ color ‌ ‌-100 text-​ ​ color ‌ ‌-800"
+    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-{{ color }}-100 text-{{ color }}-800"
   >
     {{ children }}
   </span>
@@ -9,5 +9,4 @@
 
 <script>package components
 
-func Badge(color string, children func(io.Writer)) {}
-</script>
+func Badge(color string, children func(io.Writer)) {}</script>

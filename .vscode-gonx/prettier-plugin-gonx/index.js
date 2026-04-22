@@ -106,8 +106,8 @@ function unwrapDiv(formatted, id) {
  * (otherwise it may mangle them thinking they are template expressions).
  * We use a unique sentinel that prettier won't touch.
  */
-const OPEN_SENTINEL = "\u200B\uFEFF\u200B"; // zero-width chars, invisible
-const CLOSE_SENTINEL = "\u200C\uFEFF\u200C";
+const OPEN_SENTINEL = "___GONX_OPEN___";
+const CLOSE_SENTINEL = "___GONX_CLOSE___";
 
 function escapeInterpolations(html) {
   return html

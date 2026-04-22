@@ -23,5 +23,4 @@
 
 <script>package components
 
-func Button(variant string, children func(io.Writer)) {}
-</script>
+func Button(variant string, children func(io.Writer)) {}</script>

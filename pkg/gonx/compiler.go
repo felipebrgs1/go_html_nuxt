@@ -133,7 +133,11 @@ func (c *Compiler) compilePage(b *strings.Builder) error {
 
 	params := "w io.Writer, c *fiber.Ctx"
 	if stub != nil && stub.Params != "" {
-		params = "w io.Writer, " + stub.Params
+		if strings.Contains(stub.Params, "w io.Writer") {
+			params = stub.Params
+		} else {
+			params = "w io.Writer, " + stub.Params
+		}
 	}
 
 	// Gera Render<PageName>(w io.Writer, ...)
@@ -146,6 +150,18 @@ func (c *Compiler) compilePage(b *strings.Builder) error {
 
 	// Pula geração de handler Fiber para layouts e components (não são rotas)
 	if strings.Contains(c.pf.FilePath, "app/layouts/") || strings.Contains(c.pf.FilePath, "app/components/") {
+		return nil
+	}
+
+	// Se o usuário já definiu um handler Get customizado, não geramos o handler padrão da página
+	hasCustomGet := false
+	for _, fn := range c.pf.Funcs {
+		if fn.Name == "Get" {
+			hasCustomGet = true
+			break
+		}
+	}
+	if hasCustomGet {
 		return nil
 	}
 
@@ -391,11 +407,11 @@ func (c *Compiler) compileExpr(b *strings.Builder, expr string, indent int) erro
 		c.usesHtml = true
 		b.WriteString(tabs + fmt.Sprintf("io.WriteString(w, html.EscapeString(fmt.Sprintf(\"%%v\", %s)))\n", expr))
 	} else {
-		if strings.HasPrefix(expr, "html.") {
-			expr = strings.TrimPrefix(expr, "html.")
+		if after, ok :=strings.CutPrefix(expr, "html."); ok  {
+			expr = after
 		}
 		if strings.Contains(expr, ".Raw") {
-			expr = strings.Replace(expr, ".Raw", "", -1)
+			expr = strings.ReplaceAll(expr, ".Raw", "", )
 		}
 		b.WriteString(tabs + fmt.Sprintf("io.WriteString(w, fmt.Sprintf(\"%%v\", %s))\n", expr))
 	}
@@ -403,8 +419,46 @@ func (c *Compiler) compileExpr(b *strings.Builder, expr string, indent int) erro
 	return nil
 }
 
+func minifyHTMLFragment(text string) string {
+	// 1. Remove comentários HTML (<!-- ... -->)
+	reComment := regexp.MustCompile(`(?s)<!--.*?-->`)
+	text = reComment.ReplaceAllString(text, "")
+
+	// 2. Reduz múltiplos espaços em branco, quebras de linha e tabs a um único espaço
+	reSpace := regexp.MustCompile(`\s+`)
+	text = reSpace.ReplaceAllString(text, " ")
+
+	// 3. Remove espaços ao redor de "=" nos atributos (ex: class = "foo" -> class="foo")
+	reAttrEq := regexp.MustCompile(`\s*=\s*`)
+	text = reAttrEq.ReplaceAllString(text, "=")
+
+	// 4. Remove espaços antes de fechar a tag (ex: <div > -> <div>, <br /> -> <br/>)
+	reBeforeClose := regexp.MustCompile(`\s+>`)
+	text = reBeforeClose.ReplaceAllString(text, ">")
+	reSelfClose := regexp.MustCompile(`\s+/>`)
+	text = reSelfClose.ReplaceAllString(text, "/>")
+
+	// 5. Minificação avançada: remove espaços ao redor de elementos de bloco.
+	// É seguro remover o espaço antes e depois dessas tags, sem quebrar o fluxo de texto de elementos inline (como <span> ou <a>).
+	blockTags := "html|head|body|div|p|h[1-6]|ul|ol|li|nav|header|footer|section|article|aside|main|table|tr|td|th|thead|tbody|tfoot|form|template|meta|link|svg|path|g|circle|rect|button"
+
+	// Remove espaço antes da abertura/fechamento de uma tag de bloco: ` <div` -> `<div`, ` </div>` -> `</div>`
+	reBlockBefore := regexp.MustCompile(`(?i)\s+<(/?(?:` + blockTags + `)\b)`)
+	text = reBlockBefore.ReplaceAllString(text, "<$1")
+
+	// Remove espaço depois da abertura/fechamento de uma tag de bloco: `<div> ` -> `<div>`, `</div> ` -> `</div>`
+	reBlockAfter := regexp.MustCompile(`(?i)(<(/?(?:` + blockTags + `)\b[^>]*>))\s+`)
+	text = reBlockAfter.ReplaceAllString(text, "$1")
+
+	return strings.TrimSpace(text)
+}
+
 func (c *Compiler) writeString(text string) string {
 	c.usesIO = true
+	
+	// Minifica o fragmento HTML (deixa o código inline e reduz o tamanho do bundle)
+	text = minifyHTMLFragment(text)
+
 	escaped := strings.ReplaceAll(text, `\`, `\\`)
 	escaped = strings.ReplaceAll(escaped, `"`, `\"`)
 	escaped = strings.ReplaceAll(escaped, "\n", `\n`)

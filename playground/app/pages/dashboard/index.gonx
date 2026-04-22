@@ -257,5 +257,4 @@ import (
 
 //gonx:layout layouts.Index
 //gonx:layout-args "Dashboard"
-func Dashboard(c *fiber.Ctx) error {}
-</script>
+func Dashboard(c *fiber.Ctx) error {}</script>
