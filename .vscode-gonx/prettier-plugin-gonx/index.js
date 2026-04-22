@@ -16,26 +16,89 @@
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Extract a named SFC block and its surrounding tags from the source. */
+/**
+ * Extract a named SFC block using index-based matching to avoid the lazy-regex
+ * pitfall where `<template…>([\s\S]*?)</template>` stops at the first
+ * `</template>` that Prettier may inject inside the HTML content.
+ *
+ * Strategy: find the opening tag, then scan forward counting nested opens to
+ * locate the correct closing tag.
+ */
 function extractBlock(src, tag) {
-  const re = new RegExp(
-    `(<${tag}(?:[^>]*)>)([\\s\\S]*?)(<\\/${tag}>)`,
-    "i"
-  );
-  const m = src.match(re);
-  if (!m) return null;
-  return { open: m[1], content: m[2], close: m[3], full: m[0] };
+  const openRe = new RegExp(`<${tag}(?:[^>]*)>`, "i");
+  const openMatch = src.match(openRe);
+  if (!openMatch) return null;
+
+  const openStart = openMatch.index;
+  const openEnd = openStart + openMatch[0].length;
+
+  // Scan for matching close tag, skipping nested occurrences of the same tag
+  const closeTag = `</${tag}>`;
+  const nestedOpen = new RegExp(`<${tag}(?:[^>]*)>`, "gi");
+  let depth = 1;
+  let searchFrom = openEnd;
+  let closeStart = -1;
+
+  while (depth > 0) {
+    const nextClose = src.indexOf(closeTag, searchFrom);
+    if (nextClose === -1) return null; // malformed
+
+    // Count any nested opens between searchFrom and nextClose
+    nestedOpen.lastIndex = searchFrom;
+    let m;
+    while ((m = nestedOpen.exec(src)) !== null && m.index < nextClose) {
+      depth++;
+    }
+
+    depth--;
+    if (depth === 0) {
+      closeStart = nextClose;
+    } else {
+      searchFrom = nextClose + closeTag.length;
+    }
+  }
+
+  if (closeStart === -1) return null;
+
+  return {
+    open: openMatch[0],
+    content: src.slice(openEnd, closeStart),
+    close: closeTag,
+    full: src.slice(openStart, closeStart + closeTag.length),
+    openStart,
+    openEnd,
+    closeStart,
+  };
 }
 
-/** Replace the content of a specific block in the source. */
+/** Replace the content of a specific block in the source (index-aware). */
 function replaceBlock(src, tag, newContent) {
-  const re = new RegExp(
-    `(<${tag}(?:[^>]*)>)([\\s\\S]*?)(<\\/${tag}>)`,
-    "i"
+  const block = extractBlock(src, tag);
+  if (!block) return src;
+  return (
+    src.slice(0, block.openEnd) +
+    newContent +
+    src.slice(block.closeStart)
   );
-  return src.replace(re, (_match, open, _old, close) => {
-    return open + newContent + close;
-  });
+}
+
+/**
+ * Remove the outermost wrapper div that we added before formatting.
+ * We do this by stripping the first opening tag and the LAST closing </div>,
+ * so nested </div> tags inside the content are preserved correctly.
+ */
+function unwrapDiv(formatted, id) {
+  const openTag = `<div id="${id}">`;
+  const closeTag = `</div>`;
+
+  const openIdx = formatted.indexOf(openTag);
+  if (openIdx === -1) return formatted;
+
+  const contentStart = openIdx + openTag.length;
+  const closeIdx = formatted.lastIndexOf(closeTag);
+  if (closeIdx === -1 || closeIdx < contentStart) return formatted;
+
+  return formatted.slice(contentStart, closeIdx);
 }
 
 /**
@@ -84,6 +147,8 @@ const parsers = {
   },
 };
 
+const WRAPPER_ID = "__gonx_root__";
+
 const printers = {
   "gonx-ast": {
     async print(path, options, _print) {
@@ -109,7 +174,7 @@ const printers = {
         try {
           const escaped = escapeInterpolations(tmpl.content);
           // Wrap in a dummy root so prettier can parse as a fragment
-          const wrappedInput = `<div id="__gonx_root__">${escaped}</div>`;
+          const wrappedInput = `<div id="${WRAPPER_ID}">${escaped}</div>`;
           const formatted = await prettier.format(wrappedInput, {
             ...options,
             parser: "html",
@@ -117,15 +182,9 @@ const printers = {
             htmlWhitespaceSensitivity: "css",
             printWidth: options.printWidth || 100,
           });
-          // Unwrap the dummy root
-          const innerMatch = formatted.match(
-            /<div id="__gonx_root__">([\s\S]*?)<\/div>/
-          );
-          const inner = innerMatch
-            ? innerMatch[1]
-            : formatted
-                .replace('<div id="__gonx_root__">', "")
-                .replace("</div>", "");
+
+          // Unwrap using last-index approach to preserve all inner </div> tags
+          const inner = unwrapDiv(formatted, WRAPPER_ID);
           const unescaped = unescapeInterpolations(inner);
           result = replaceBlock(result, "template", "\n" + unescaped);
         } catch (_e) {

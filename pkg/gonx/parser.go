@@ -71,9 +71,11 @@ func ParseFile(path string) (*ParsedFile, error) {
 	pf.Script = ExtractBlock(string(content), "script")
 	pf.Style = ExtractBlock(string(content), "style")
 
-	// Parse o script para extrair package, imports e funções
+	// Parse o script para extrair package, imports e funções.
+	// Se o bloco <script> estiver ausente ou vazio, inferimos defaults do path.
 	if err := pf.parseScript(); err != nil {
-		return nil, fmt.Errorf("erro ao parsear script: %w", err)
+		// Script vazio/ausente é permitido — apenas define o package pelo path
+		pf.Package = inferPackageFromPath(path)
 	}
 
 	// Auto-import: descobre pacotes internos usados
@@ -130,16 +132,38 @@ func ExtractBlock(content, tag string) string {
 	return best
 }
 
+// inferPackageFromPath derives the Go package name from the file's parent directory.
+// e.g. app/pages/index.gonx -> "pages", app/components/button.gonx -> "components"
+func inferPackageFromPath(filePath string) string {
+	dir := filepath.Base(filepath.Dir(filePath))
+	// Sanitise: Go package names must be valid identifiers
+	dir = strings.ToLower(dir)
+	dir = strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_' {
+			return r
+		}
+		return '_'
+	}, dir)
+	if dir == "" || (dir[0] >= '0' && dir[0] <= '9') {
+		return "main"
+	}
+	return dir
+}
+
 func (pf *ParsedFile) parseScript() error {
-	if pf.Script == "" {
-		return fmt.Errorf("bloco <script> não encontrado")
+	if strings.TrimSpace(pf.Script) == "" {
+		// Script vazio ou ausente: inferir package do path, sem funções
+		pf.Package = inferPackageFromPath(pf.FilePath)
+		return nil
 	}
 
 	originalSrc := pf.Script
 	src := originalSrc
 	offset := 0
 	if !strings.HasPrefix(strings.TrimSpace(src), "package ") {
-		prefix := "package main\n"
+		// Infer package from directory name so developers don't need to write it
+		inferred := inferPackageFromPath(pf.FilePath)
+		prefix := "package " + inferred + "\n"
 		src = prefix + src
 		offset = len(prefix)
 	}
@@ -275,10 +299,11 @@ func (pf *ParsedFile) resolveAutoImports() error {
 // extractIdentifiers extrai todos os identificadores de pacote usados no script
 func (pf *ParsedFile) extractIdentifiers() map[string]bool {
 	idents := make(map[string]bool)
-	
+
 	src := pf.Script
 	if !strings.HasPrefix(strings.TrimSpace(src), "package ") {
-		src = "package main\n" + src
+		inferred := inferPackageFromPath(pf.FilePath)
+		src = "package " + inferred + "\n" + src
 	}
 
 	fset := token.NewFileSet()

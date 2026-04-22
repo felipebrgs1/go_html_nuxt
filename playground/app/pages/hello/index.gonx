@@ -25,7 +25,8 @@
         <div
           id="result"
           class="mt-3 p-3 bg-gray-50 rounded-lg text-sm text-gray-700 font-mono"
-        ></template>
+        >
+</template>
 
-<script>package hello
+<script>
 </script>
