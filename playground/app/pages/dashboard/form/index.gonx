@@ -1,70 +1,46 @@
 <template>
-  <div 
-    id="modal-overlay"
-    class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-opacity animate-in fade-in duration-200"
-    @click="if (event.target === this) this.remove()"
-  >
-    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
-      <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
-        <h3 class="text-lg font-bold text-gray-900">Novo Usuário</h3>
-        <button class="text-gray-400 hover:text-gray-600 transition-colors" @click="document.getElementById('modal-overlay').remove()">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
+	<div id="modal-overlay" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-opacity animate-in fade-in duration-200" @click="if (event.target === this) this.remove()" >
+		<div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
+			<div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+				<h3 class="text-lg font-bold text-gray-900">Novo Usuário</h3>
+				<button class="text-gray-400 hover:text-gray-600 transition-colors" @click="document.getElementById('modal-overlay').remove()">
+					<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+					</svg>
+				</button>
+			</div>
 
-      <form :hx-post="'/api/dashboard'" :hx-target="'#users-table'" :hx-swap="'beforeend'" class="p-6 space-y-4">
-        <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-1">Nome Completo</label>
-          <input 
-            type="text" 
-            name="name" 
-            :required="true"
-            class="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-            placeholder="Ex: João Silva"
-          />
-        </div>
+			<form :hx-post="'/api/dashboard'" :hx-target="'#users-table'" :hx-swap="'beforeend'" class="p-6 space-y-4">
+				<div>
+					<label class="block text-sm font-semibold text-gray-700 mb-1">Nome Completo</label>
+					<input type="text" name="name" :required="true" class="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all" placeholder="Ex: João Silva" />
+				</div>
 
-        <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-1">E-mail</label>
-          <input 
-            type="email" 
-            name="email" 
-            :required="true"
-            class="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-            placeholder="joao@exemplo.com"
-          />
-        </div>
+				<div>
+					<label class="block text-sm font-semibold text-gray-700 mb-1">E-mail</label>
+					<input type="email" name="email" :required="true" class="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all" placeholder="joao@exemplo.com" />
+				</div>
 
-        <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-1">Cargo / Role</label>
-          <select name="role" class="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all">
-            <option value="Admin">Admin</option>
-            <option value="Editor">Editor</option>
-            <option value="Viewer">Viewer</option>
-          </select>
-        </div>
+				<div>
+					<label class="block text-sm font-semibold text-gray-700 mb-1">Cargo / Role</label>
+					<select name="role" class="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all">
+						<option value="Admin">Admin</option>
+						<option value="Editor">Editor</option>
+						<option value="Viewer">Viewer</option>
+					</select>
+				</div>
 
-        <div class="pt-4 flex gap-3">
-          <button 
-            type="button"
-            class="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors"
-            @click="document.getElementById('modal-overlay').remove()"
-          >
-            Cancelar
-          </button>
-          <button 
-            type="submit"
-            class="flex-1 px-4 py-2.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all active:scale-95"
-            @click="setTimeout(() => document.getElementById('modal-overlay').remove(), 100)"
-          >
-            Salvar Usuário
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
+				<div class="pt-4 flex gap-3">
+					<button type="button" class="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors" @click="document.getElementById('modal-overlay').remove()" >
+						Cancelar
+					</button>
+					<button type="submit" class="flex-1 px-4 py-2.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all active:scale-95" @click="setTimeout(() => document.getElementById('modal-overlay').remove(), 100)" >
+						Salvar Usuário
+					</button>
+				</div>
+			</form>
+		</div>
+	</div>
 </template>
 
 <script>

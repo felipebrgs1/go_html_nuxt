@@ -1,25 +1,16 @@
 package cli
 
 import (
-	"bytes"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
+
+	"go_template/pkg/gonx/format"
 )
 
-// scriptBlockRe matches a <script>...</script> block (capturing its content).
-var scriptBlockRe = regexp.MustCompile(`(?s)(<script[^>]*>)(.*?)(</script>)`)
-
-// styleBlockRe matches a <style>...</style> block (capturing its content).
-var styleBlockRe = regexp.MustCompile(`(?s)(<style[^>]*>)(.*?)(</style>)`)
-
-// RunFmt formats all .gonx files under the project root:
-//   - <script> blocks are formatted via gofmt
-//   - <style>  blocks are formatted via prettier (if available)
-//   - <template> blocks are formatted via prettier (if available)
+// RunFmt formats all .gonx files under the project root, or a single .gonx
+// file if projectRoot points to a file.
 func RunFmt(projectRoot string) error {
 	if projectRoot == "" {
 		projectRoot = "."
@@ -30,12 +21,45 @@ func RunFmt(projectRoot string) error {
 		return fmt.Errorf("invalid path: %w", err)
 	}
 
+	info, err := os.Stat(abs)
+	if err != nil {
+		return fmt.Errorf("path not found: %w", err)
+	}
+
+	// Single-file mode
+	if !info.IsDir() {
+		if !strings.HasSuffix(abs, ".gonx") {
+			return fmt.Errorf("not a .gonx file: %s", abs)
+		}
+		root := findProjectRoot(abs)
+		opts, err := format.LoadConfig(filepath.Join(root, "gonx.toml"))
+		if err != nil {
+			return fmt.Errorf("failed to load gonx.toml: %w", err)
+		}
+		rel, _ := filepath.Rel(root, abs)
+		changed, fmtErr := format.FormatGonxFile(abs, opts)
+		if fmtErr != nil {
+			fmt.Printf("  \u2717  %s  (%v)\n", rel, fmtErr)
+			return nil
+		}
+		if changed {
+			fmt.Printf("  \u2713  %s\n", rel)
+		}
+		fmt.Printf("\nDone: 1 file(s) formatted, 0 skipped.\n")
+		return nil
+	}
+
+	// Directory mode (original behaviour)
 	appDir := filepath.Join(abs, "app")
 	if _, err := os.Stat(appDir); os.IsNotExist(err) {
 		return fmt.Errorf("app/ directory not found in %s", abs)
 	}
 
-	hasPrettier := prettierAvailable()
+	opts, err := format.LoadConfig(filepath.Join(abs, "gonx.toml"))
+	if err != nil {
+		return fmt.Errorf("failed to load gonx.toml: %w", err)
+	}
+
 	formatted := 0
 	skipped := 0
 
@@ -45,14 +69,14 @@ func RunFmt(projectRoot string) error {
 		}
 
 		rel, _ := filepath.Rel(abs, path)
-		changed, fmtErr := formatGonxFile(path, hasPrettier)
+		changed, fmtErr := format.FormatGonxFile(path, opts)
 		if fmtErr != nil {
-			fmt.Printf("  ✗  %s  (%v)\n", rel, fmtErr)
+			fmt.Printf("  \u2717  %s  (%v)\n", rel, fmtErr)
 			skipped++
 			return nil
 		}
 		if changed {
-			fmt.Printf("  ✔  %s\n", rel)
+			fmt.Printf("  \u2713  %s\n", rel)
 			formatted++
 		}
 		return nil
@@ -62,170 +86,22 @@ func RunFmt(projectRoot string) error {
 	}
 
 	fmt.Printf("\nDone: %d file(s) formatted, %d skipped.\n", formatted, skipped)
-	if !hasPrettier {
-		fmt.Println("  Tip: install prettier to also format <template> and <style> blocks.")
-	}
 	return nil
 }
 
-// formatGonxFile reads path, formats each block, and writes back if changed.
-func formatGonxFile(path string, hasPrettier bool) (changed bool, err error) {
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return false, err
-	}
-	original := string(raw)
-	result := original
-
-	// --- Format <script> via gofmt ---
-	result, err = formatBlock(result, scriptBlockRe, func(content string) (string, error) {
-		return runGofmt(content)
-	})
-	if err != nil {
-		return false, fmt.Errorf("gofmt: %w", err)
-	}
-
-	// --- Format <style> via prettier (optional) ---
-	if hasPrettier {
-		result, err = formatBlock(result, styleBlockRe, func(content string) (string, error) {
-			return runPrettierOn(content, "css")
-		})
-		if err != nil {
-			// Non-fatal: prettier may not support this input
-			err = nil
+// findProjectRoot walks upward from path looking for a directory that
+// contains an "app/" sub-directory.  Falls back to the file's directory.
+func findProjectRoot(filePath string) string {
+	dir := filepath.Dir(filePath)
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "app")); err == nil {
+			return dir
 		}
-	}
-
-	if result == original {
-		return false, nil
-	}
-
-	return true, os.WriteFile(path, []byte(result), 0o644)
-}
-
-// formatBlock finds the first match of re in src, applies fn to the inner
-// content, and returns the updated string.
-// Ensures opening and closing tags stay on their own lines.
-func formatBlock(src string, re *regexp.Regexp, fn func(string) (string, error)) (string, error) {
-	match := re.FindStringSubmatchIndex(src)
-	if match == nil {
-		return src, nil
-	}
-	// Groups: [full, open-tag, content, close-tag]
-	_, openEnd := match[2], match[3]
-	contentStart, contentEnd := match[4], match[5]
-	closeStart := match[6]
-	inner := src[contentStart:contentEnd]
-
-	formatted, err := fn(inner)
-	if err != nil {
-		return src, err
-	}
-
-	if strings.TrimSpace(formatted) == "" {
-		return src[:openEnd] + "\n" + src[closeStart:], nil
-	}
-
-	if !strings.HasPrefix(formatted, "\n") {
-		formatted = "\n" + formatted
-	}
-	if !strings.HasSuffix(formatted, "\n") {
-		formatted = formatted + "\n"
-	}
-
-	return src[:openEnd] + formatted + src[closeStart:], nil
-}
-
-var packageRe = regexp.MustCompile(`(?m)^\s*package\s+\w+\s*$`)
-
-// autoImportBinds são imports gerenciados automaticamente pelo compilador.
-// O fmt os remove do <script> porque eles serão injetados sob demanda.
-var autoImportBinds = []string{
-	`"github.com/gofiber/fiber/v2"`,
-}
-
-// stripAutoImports remove imports que o framework injeta automaticamente.
-func stripAutoImports(script string) string {
-	for _, bind := range autoImportBinds {
-		// Caso 1: import simples em uma linha: import "path"
-		singleRe := regexp.MustCompile(`(?m)^\s*import\s+` + regexp.QuoteMeta(bind) + `\s*$`)
-		script = singleRe.ReplaceAllString(script, "")
-
-		// Caso 2: dentro de bloco import ( ... )
-		// Remove a linha que contém o bind dentro de um bloco import
-		blockLineRe := regexp.MustCompile(`(?m)^\s*` + regexp.QuoteMeta(bind) + `\s*$`)
-		script = blockLineRe.ReplaceAllString(script, "")
-	}
-
-	// Se sobrou um bloco import vazio: import () , remove-o
-	script = regexp.MustCompile(`(?m)^\s*import\s*\(\s*\)\s*$`).ReplaceAllString(script, "")
-
-	return strings.TrimSpace(script)
-}
-
-// runGofmt pipes content through `gofmt`.
-// It strips any existing `package` declaration (inferred by the parser),
-// removes auto-import binds, injects a temporary package so gofmt works,
-// then cleans up again.
-func runGofmt(script string) (string, error) {
-	trimmed := strings.TrimSpace(script)
-	if trimmed == "" {
-		return "", nil
-	}
-
-	// Remove user-written package declaration if present
-	input := packageRe.ReplaceAllString(script, "")
-	input = strings.TrimSpace(input)
-
-	// gofmt needs a valid Go file, so inject a temporary package
-	input = "package _gonx_fmt\n" + input
-
-	cmd := exec.Command("gofmt")
-	cmd.Stdin = strings.NewReader(input)
-	var out, stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return script, fmt.Errorf("%s", strings.TrimSpace(stderr.String()))
-	}
-
-	result := out.String()
-	// Remove the injected temporary package line
-	lines := strings.Split(result, "\n")
-	var filtered []string
-	found := false
-	for _, line := range lines {
-		if !found && strings.HasPrefix(strings.TrimSpace(line), "package _gonx_fmt") {
-			found = true
-			continue
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
 		}
-		filtered = append(filtered, line)
+		dir = parent
 	}
-	result = strings.Join(filtered, "\n")
-
-	// Remove auto-import binds que o framework injeta automaticamente
-	result = stripAutoImports(result)
-
-	return strings.TrimSpace(result), nil
-}
-
-// runPrettierOn formats content using prettier with the given parser.
-func runPrettierOn(content, parser string) (string, error) {
-	cmd := exec.Command("prettier", "--parser", parser, "--stdin-filepath", "input."+parser)
-	cmd.Stdin = strings.NewReader(content)
-	var out, stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return content, fmt.Errorf("%s", strings.TrimSpace(stderr.String()))
-	}
-	return out.String(), nil
-}
-
-// prettierAvailable returns true if prettier is on PATH.
-func prettierAvailable() bool {
-	_, err := exec.LookPath("prettier")
-	return err == nil
+	return filepath.Dir(filePath)
 }

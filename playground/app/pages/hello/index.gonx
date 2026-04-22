@@ -1,28 +1,22 @@
 <template>
-  <div class="max-w-3xl mx-auto py-12">
-    <div class="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-      <div class="flex items-center gap-4 mb-8">
-        <div class="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
-          <Icon name="zap" class="w-8 h-8 text-green-600" />
-        </div>
-        <div>
-          <h1 class="text-3xl font-bold text-gray-900">Hello HTMX</h1>
-          <p class="text-gray-500">Exemplo de integração direta entre HTMX e Go Fiber.</p>
-        </div>
-      </div>
+	<div class="max-w-3xl mx-auto py-12">
+		<div class="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+			<div class="flex items-center gap-4 mb-8">
+				<div class="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
+					<Icon name="zap" class="w-8 h-8 text-green-600" />
+				</div>
+				<div>
+					<h1 class="text-3xl font-bold text-gray-900">Hello HTMX</h1>
+					<p class="text-gray-500">Exemplo de integração direta entre HTMX e Go Fiber.</p>
+				</div>
+			</div>
 
-      <div class="space-y-6">
-        <div class="p-6 bg-gray-50 rounded-xl border border-gray-200">
-          <h3 class="text-lg font-semibold text-gray-800 mb-4">Teste de API em Tempo Real</h3>
-          <p class="text-gray-600 mb-4">Este botão faz uma requisição para <code>/api/hello</code> e injeta o resultado HTML diretamente abaixo.</p>
-          
-          <button 
-            :hx-get="'/api/hello'" 
-            :hx-target="'#hello-result'" 
-            :hx-swap="'innerHTML'"
-            :class="'inline-flex items-center px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 active:translate-y-0'"
-            :disabled="false"
-          >
+			<div class="space-y-6">
+				<div class="p-6 bg-gray-50 rounded-xl border border-gray-200">
+					<h3 class="text-lg font-semibold text-gray-800 mb-4">Teste de API em Tempo Real</h3>
+					<p class="text-gray-600 mb-4">Este botão faz uma requisição para <code>/api/hello</code> e injeta o resultado HTML diretamente abaixo.</p>
+
+<button :hx-get="'/api/hello'" :hx-target="'#hello-result'" :hx-swap="'innerHTML'" :class="'inline-flex items-center px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 active:translate-y-0'" :disabled="false" >
             Chamar API via HTMX (Dynamic)
           </button>
 
@@ -38,8 +32,7 @@
             Voltar para a Home
           </a>
 
-          <span 
-          class="text-xs text-gray-400 font-mono">Página: playground/app/pages/hello/index.gonx</span>
+<span class="text-xs text-gray-400 font-mono">Página: playground/app/pages/hello/index.gonx</span>
         </div>
       </div>
     </div>

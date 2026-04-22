@@ -1,14 +1,19 @@
 {
   "name": "gonx-vscode",
   "displayName": "Gonx Support",
-  "description": "Syntax highlighting for .gonx files",
-  "version": "0.1.0",
+  "description": "Syntax highlighting and native formatting for .gonx files",
+  "version": "0.2.0",
   "publisher": "antigravity",
   "engines": {
     "vscode": "^1.60.0"
   },
   "categories": [
-    "Programming Languages"
+    "Programming Languages",
+    "Formatters"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:gonx"
   ],
   "contributes": {
     "languages": [{
@@ -30,6 +35,16 @@
         "source.go": "go",
         "source.css": "css"
       }
-    }]
+    }],
+    "configuration": {
+      "title": "Gonx",
+      "properties": {
+        "gonx.formatterPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the Gonx formatter executable. If empty, the extension tries 'go run scripts/framework/main.go' from the workspace root, then falls back to 'framework' on PATH."
+        }
+      }
+    }
   }
 }
