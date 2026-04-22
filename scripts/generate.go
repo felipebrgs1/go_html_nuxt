@@ -18,7 +18,7 @@ func main() {
 	}
 
 	fmt.Printf("[generate] Compiling .gonx in %s...\n", path)
-	if err := gonx.Compile(path); err != nil {
+	if err := gonx.Compile(path, true); err != nil {
 		fmt.Fprintf(os.Stderr, "Error compiling gonx: %v\n", err)
 		os.Exit(1)
 	}

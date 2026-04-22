@@ -10,7 +10,7 @@ import (
 
 func main() {
 	app := fiber.New(fiber.Config{
-		DisableStartupMessage: false,
+		DisableStartupMessage: os.Getenv("GONX_RESTART") == "true",
 	})
 
 	// Static files

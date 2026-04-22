@@ -17,6 +17,7 @@ type DevServer struct {
 	mu          sync.Mutex
 	port        string
 	shuttingDown bool
+	isRestart   bool
 }
 
 func NewDevServer(root string) *DevServer {
@@ -54,6 +55,7 @@ func (s *DevServer) Restart() {
 	}
 
 	_ = s.stopProcessLocked()
+	s.isRestart = true
 	time.Sleep(300 * time.Millisecond)
 	if err := s.startProcess(); err != nil {
 		fmt.Printf("Error restarting server: %v\n", err)
@@ -105,6 +107,9 @@ func (s *DevServer) startProcess() error {
 	s.cmd.Stdout = os.Stdout
 	s.cmd.Stderr = os.Stderr
 	s.cmd.Env = append(os.Environ(), fmt.Sprintf("PORT=%s", s.port))
+	if s.isRestart {
+		s.cmd.Env = append(s.cmd.Env, "GONX_RESTART=true")
+	}
 	s.cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
 	}

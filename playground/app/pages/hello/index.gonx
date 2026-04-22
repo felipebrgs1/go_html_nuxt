@@ -39,7 +39,9 @@
             </svg>
             Voltar para a Home
           </a>
-          <span class="text-xs text-gray-400 font-mono">Página: playground/app/pages/hello/index.gonx</span>
+
+          <span 
+          class="text-xs text-gray-400 font-mono">Página: playground/app/pages/hello/index.gonx</span>
         </div>
       </div>
     </div>

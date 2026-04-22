@@ -34,7 +34,7 @@ func HasGonx(root string) bool {
 }
 
 // Compile procura todos os arquivos .gonx e os compila
-func Compile(root string) error {
+func Compile(root string, verbose bool) error {
 	var files []string
 	
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
@@ -66,11 +66,13 @@ func Compile(root string) error {
 			return fmt.Errorf("gonx %s: %w", f, err)
 		}
 		
-		if i < 10 {
-			rel, _ := filepath.Rel(root, f)
-			fmt.Printf("  compiled %s in %v (%d bytes)\n", rel, time.Since(start), size)
-		} else if i == 10 {
-			fmt.Println("  ...")
+		if verbose {
+			if i < 10 {
+				rel, _ := filepath.Rel(root, f)
+				fmt.Printf("  compiled %s in %v (%d bytes)\n", rel, time.Since(start), size)
+			} else if i == 10 {
+				fmt.Println("  ...")
+			}
 		}
 	}
 

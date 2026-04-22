@@ -117,19 +117,76 @@ func findProjectRoot(filePath string) string {
 }
 
 func ExtractBlock(content, tag string) string {
+	startTag := "<" + tag
+	endTag := "</" + tag + ">"
+	
+	pos := 0
+	for {
+		startIdx := strings.Index(content[pos:], startTag)
+		if startIdx == -1 {
+			break
+		}
+		startIdx += pos
+		
+		// Verifica se é uma tag completa (evita casar <scripts se procuramos <script)
+		nextChar := content[startIdx+len(startTag)]
+		if nextChar != '>' && nextChar != ' ' {
+			pos = startIdx + len(startTag)
+			continue
+		}
+
+		// Encontra o fim da tag de abertura
+		openTagEnd := strings.Index(content[startIdx:], ">")
+		if openTagEnd == -1 {
+			break
+		}
+		openTagEnd += startIdx
+
+		// Procura a tag de fechamento correspondente
+		endIdx := strings.Index(content[openTagEnd:], endTag)
+		if endIdx == -1 {
+			break
+		}
+		endIdx += openTagEnd
+
+		// Se for o bloco de script, e estivermos no layout, queremos o script Go (que geralmente contém 'package ')
+		// Se houver múltiplos blocos (ex: script JS no template), tentamos identificar o correto.
+		inner := content[openTagEnd+1 : endIdx]
+		
+		// Heurística simples: se procuramos <script> e o conteúdo tem 'package ', é quase certeza o bloco Go.
+		// Para outros blocos, ou se não houver 'package ', pegamos o primeiro nível encontrado.
+		if tag == "script" && strings.Contains(inner, "package ") {
+			return strings.TrimSpace(inner)
+		}
+		
+		// Se for template, pegamos o primeiro
+		if tag == "template" {
+			return strings.TrimSpace(inner)
+		}
+		
+		// Se for style, pegamos o primeiro
+		if tag == "style" {
+			return strings.TrimSpace(inner)
+		}
+
+		pos = endIdx + len(endTag)
+	}
+
+	// Fallback para o comportamento anterior se não encontrou via heurística
 	re := regexp.MustCompile(`(?s)<` + tag + `[^>]*>(.*?)</` + tag + `>`)
 	matches := re.FindAllStringSubmatch(content, -1)
-	if len(matches) == 0 {
-		return ""
-	}
-	// Pega o match com maior conteúdo para evitar tags vazias no template
-	best := ""
-	for _, m := range matches {
-		if len(m) >= 2 && len(strings.TrimSpace(m[1])) > len(best) {
-			best = strings.TrimSpace(m[1])
+	if len(matches) == 0 { return "" }
+	
+	// Se for script, prefere o que tem "package "
+	if tag == "script" {
+		for _, m := range matches {
+			if strings.Contains(m[1], "package ") {
+				return strings.TrimSpace(m[1])
+			}
 		}
 	}
-	return best
+	
+	return strings.TrimSpace(matches[0][1])
 }
 
 // inferPackageFromPath derives the Go package name from the file's parent directory.

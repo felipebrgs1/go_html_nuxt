@@ -13,7 +13,6 @@ import (
 	"go_template/pkg/router"
 	"go_template/pkg/server"
 	"go_template/pkg/tailwind"
-	"go_template/pkg/templ"
 	"go_template/pkg/watcher"
 )
 
@@ -25,7 +24,7 @@ func RunDev(projectRoot string) error {
 	}
 	fmt.Printf("Starting development server in %s...\n", projectRoot)
 
-	if err := compileAssets(projectRoot); err != nil {
+	if err := compileAssets(projectRoot, true); err != nil {
 		fmt.Printf("Warning during asset compilation: %v\n", err)
 	}
 	if err := generateRoutes(projectRoot); err != nil {
@@ -59,7 +58,7 @@ func RunDev(projectRoot string) error {
 		}
 
 		start := time.Now()
-		if err := compileAssets(projectRoot); err != nil {
+		if err := compileAssets(projectRoot, false); err != nil {
 			fmt.Printf("Error during asset compilation: %v\n", err)
 			errorCount++
 			return
@@ -112,15 +111,10 @@ func generateRoutes(root string) error {
 	return generator.Generate(root, routes)
 }
 
-func compileAssets(root string) error {
+func compileAssets(root string, verbose bool) error {
 	if gonx.HasGonx(root) {
-		if err := gonx.Compile(root); err != nil {
+		if err := gonx.Compile(root, verbose); err != nil {
 			return fmt.Errorf("gonx: %w", err)
-		}
-	}
-	if templ.HasTempl(root) {
-		if err := templ.Compile(root); err != nil {
-			return fmt.Errorf("templ: %w", err)
 		}
 	}
 	if tailwind.HasTailwind(root) {

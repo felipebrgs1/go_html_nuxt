@@ -11,6 +11,25 @@
         integrity="sha384-H5SrcfygHmAuTDZphMHqBJLc3FhssKjG7w/CeCpFReSfwBWDTKpkzPP8c+cLsK+V"
         crossorigin="anonymous"
       ></script>
+      <script>
+        (function() {
+          const sendLog = (type, args) => {
+            const message = Array.from(args).map(arg => 
+              typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+            ).join(' ');
+            fetch('/__gonx/logs', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ type, message, file: window.location.pathname })
+            }).catch(() => {});
+          };
+          const _err = console.error;
+          console.error = function() { sendLog('error', arguments); _err.apply(console, arguments); };
+          const _warn = console.warn;
+          console.warn = function() { sendLog('warn', arguments); _warn.apply(console, arguments); };
+          window.addEventListener('error', (e) => sendLog('error', [e.message, e.filename + ':' + e.lineno]));
+        })();
+      </script>
       <link rel="stylesheet" href="/styles.css" />
     </head>
     <body class="bg-gray-50 text-gray-900 min-h-screen">
