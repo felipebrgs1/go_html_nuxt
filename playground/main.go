@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"os"
 
+	framework "playground/gonx/framework_gen"
+
 	"github.com/gofiber/fiber/v2"
-	"playground/gonx/framework_gen"
+	"github.com/gofiber/fiber/v2/middleware/compress"
 )
 
 func main() {
@@ -13,8 +15,16 @@ func main() {
 		DisableStartupMessage: os.Getenv("GONX_RESTART") == "true",
 	})
 
-	// Static files
-	app.Static("/", "./public")
+	// Brotli/Gzip compression for all responses
+	app.Use(compress.New(compress.Config{
+		Level: 1,
+	}))
+
+	// Static files with long-term cache + Brotli compression
+	app.Static("/", "./public", fiber.Static{
+		MaxAge:   31536000, // 1 year
+		Compress: true,
+	})
 
 	// Register generated routes
 	framework.RegisterRoutes(app)
