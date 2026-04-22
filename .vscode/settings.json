@@ -1,0 +1,19 @@
+{
+  "files.associations": {
+    "*.gonx": "gonx"
+  },
+
+  // --- Format on Save ---
+  "editor.formatOnSave": true,
+
+  // Use prettier for .gonx files (<template> + <style>)
+  "[gonx]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+
+  // Tell prettier which plugin to use for .gonx
+  "prettier.documentSelectors": ["**/*.gonx"],
+  "prettier.plugins": [
+    "./.vscode-gonx/prettier-plugin-gonx/index.js"
+  ]
+}

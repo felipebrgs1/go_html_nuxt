@@ -1,25 +1,21 @@
 <template>
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>{{ title }}</title>
-	<script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.10/dist/htmx.min.js"></script>
-	<link rel="stylesheet" href="/styles.css"/>
-</head>
-<body class="bg-gray-900 text-white min-h-screen">
-	<div class="flex flex-col h-screen">
-		<header class="bg-gray-800 p-4 border-b border-gray-700">
-			<h1 class="text-xl font-bold">Full Layout Mode</h1>
-		</header>
-		<main class="flex-1 overflow-auto p-8">
-			{{ children }}
-		</main>
-	</div>
-</body>
-</html>
-</template>
+
+  <!DOCTYPE html>
+  <html lang="pt-BR">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>{{ title }}</title>
+      <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.10/dist/htmx.min.js"></script>
+      <link rel="stylesheet" href="/styles.css" />
+    </head>
+    <body class="bg-gray-900 text-white min-h-screen">
+      <div class="flex flex-col h-screen">
+        <header class="bg-gray-800 p-4 border-b border-gray-700">
+          <h1 class="text-xl font-bold">Full Layout Mode</h1>
+        </header>
+        <main class="flex-1 overflow-auto p-8">{{ children }}</main>
+      </template>
 
 <script>
 package layouts

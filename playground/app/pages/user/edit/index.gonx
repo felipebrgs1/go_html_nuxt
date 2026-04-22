@@ -1,13 +1,12 @@
 <template>
 </template>
 
-<script>
-package edit
+<script>package edit
 
 import (
-	"strconv"
 	"github.com/gofiber/fiber/v2"
 	"playground/app/models"
+	"strconv"
 )
 
 func Get(c *fiber.Ctx) error {

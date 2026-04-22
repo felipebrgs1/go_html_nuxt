@@ -1,0 +1,11 @@
+{
+  "name": "prettier-plugin-gonx",
+  "version": "0.1.0",
+  "description": "Prettier plugin for .gonx Single File Components",
+  "main": "index.js",
+  "keywords": ["prettier", "gonx", "plugin"],
+  "license": "MIT",
+  "peerDependencies": {
+    "prettier": ">=2.0.0"
+  }
+}

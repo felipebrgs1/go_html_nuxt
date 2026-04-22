@@ -1,0 +1,14 @@
+{
+  "plugins": ["./.vscode-gonx/prettier-plugin-gonx/index.js"],
+  "overrides": [
+    {
+      "files": "*.gonx",
+      "options": {
+        "parser": "gonx",
+        "printWidth": 100,
+        "tabWidth": 2,
+        "htmlWhitespaceSensitivity": "css"
+      }
+    }
+  ]
+}

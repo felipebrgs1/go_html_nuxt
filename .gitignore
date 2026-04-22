@@ -1,9 +1,11 @@
 # Binários
 framework
 
-# Arquivos gerados
+# Arquivos gerados (.gonx compilados e rotas geradas)
 .framework/
 *_templ.go
+gonx/
+framework_gen/
 public/styles.css
 
 # Tailwind CLI (baixado automaticamente)
@@ -16,10 +18,8 @@ vendor/
 *.dylib
 *.test
 *.out
-/gonx/
 # IDE
 .idea/
-.vscode/
 *.swp
 *.swo
 *~
@@ -27,3 +27,6 @@ vendor/
 # OS
 .DS_Store
 Thumbs.db
+
+# Node / Prettier
+node_modules/

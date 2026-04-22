@@ -247,13 +247,12 @@
 <div id="modal-container"></div>
 </template>
 
-<script>
-package dashboard
+<script>package dashboard
 
 import (
-	"strconv"
 	"github.com/gofiber/fiber/v2"
 	"playground/app/models"
+	"strconv"
 )
 
 //gonx:layout layouts.Index

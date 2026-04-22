@@ -1,4 +1,4 @@
-.PHONY: build install dev playground clean
+.PHONY: build install dev playground clean fmt
 
 # Variables
 BINARY_NAME=framework
@@ -23,3 +23,7 @@ dev: build
 clean:
 	rm -f $(BINARY_NAME)
 	@echo "Cleaned framework"
+
+# Format all .gonx files in the playground project
+fmt: build
+	@cd playground && ../$(BINARY_NAME) fmt .
