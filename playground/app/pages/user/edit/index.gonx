@@ -70,10 +70,7 @@
 </template>
 
 <script>
-package edit
-
 import (
-	"github.com/gofiber/fiber/v2"
 	"io"
 	"playground/app/models"
 	"strconv"

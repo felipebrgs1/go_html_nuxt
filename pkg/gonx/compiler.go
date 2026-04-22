@@ -142,8 +142,11 @@ func (c *Compiler) compilePage(b *strings.Builder) error {
 
 	// Gera Render<PageName>(w io.Writer, ...)
 	c.usesIO = true
+	if strings.Contains(params, "*fiber.Ctx") {
+		c.usesFiber = true
+	}
 	b.WriteString(fmt.Sprintf("func %s(%s) {\n", renderName, params))
-	if err := c.compileTemplateBody(b, c.pf.Template, 1); err != nil {
+	if err := c.compileTemplateBody(b, autoInjectHTMX(c.pf.Template), 1); err != nil {
 		return err
 	}
 	b.WriteString("}\n\n")
@@ -257,7 +260,7 @@ func (c *Compiler) compileFunc(b *strings.Builder, fn FuncSignature) error {
 	}
 	b.WriteString(") {\n")
 
-	if err := c.compileTemplateBody(b, c.pf.Template, 1); err != nil {
+	if err := c.compileTemplateBody(b, autoInjectHTMX(c.pf.Template), 1); err != nil {
 		return err
 	}
 
@@ -417,6 +420,31 @@ func (c *Compiler) compileExpr(b *strings.Builder, expr string, indent int) erro
 	}
 
 	return nil
+}
+
+// autoInjectHTMX insere o script do HTMX local no <head> se ainda não estiver presente.
+func autoInjectHTMX(tmpl string) string {
+	lower := strings.ToLower(tmpl)
+	// Só injeta se houver <head> e não houver referência ao htmx.min.js
+	if !strings.Contains(lower, "<head") || strings.Contains(lower, "htmx.min.js") {
+		return tmpl
+	}
+
+	// Procura o fim da tag de abertura <head> (com ou sem atributos)
+	headOpenEnd := strings.Index(lower, "<head")
+	if headOpenEnd == -1 {
+		return tmpl
+	}
+	// Avança até o '>' correspondente
+	for i := headOpenEnd; i < len(tmpl); i++ {
+		if tmpl[i] == '>' {
+			headOpenEnd = i + 1
+			break
+		}
+	}
+
+	script := "\n<script src=\"/htmx.min.js\"></script>"
+	return tmpl[:headOpenEnd] + script + tmpl[headOpenEnd:]
 }
 
 func minifyHTMLFragment(text string) string {

@@ -42,10 +42,6 @@
 </template>
 
 <script>
-package user
-
-import "github.com/gofiber/fiber/v2"
-
 //gonx:layout layouts.Index
 //gonx:layout-args "Perfil do Usuário"
 func UserDetail(c *fiber.Ctx) error {}

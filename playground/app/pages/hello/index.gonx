@@ -49,10 +49,6 @@
 </template>
 
 <script>
-package hello
-
-import "github.com/gofiber/fiber/v2"
-
 //gonx:layout layouts.Index
 //gonx:layout-args "Hello HTMX"
 func Hello(c *fiber.Ctx) error {}

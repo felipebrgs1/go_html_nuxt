@@ -67,10 +67,6 @@
 </template>
 
 <script>
-package pages
-
-import "github.com/gofiber/fiber/v2"
-
 //gonx:layout layouts.Index
 //gonx:layout-args "Framework Go + HTMX"
 func Index(c *fiber.Ctx) error {}
