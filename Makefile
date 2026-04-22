@@ -1,33 +1,33 @@
-.PHONY: dev build install clean
+.PHONY: dev build install clean generate
 
-# Variáveis
+# Variables
 BINARY_NAME=framework
 CMD_PATH=./scripts/framework
 BUILD_FLAGS=-ldflags="-s -w"
 
-# Desenvolvimento: compila e executa o CLI em modo dev
-dev:
+# Development: clean, build and run CLI in dev mode
+dev: clean
 	go build -o $(BINARY_NAME) $(CMD_PATH)
 	./$(BINARY_NAME) dev
 
-# Build de produção: gera gonx/rotas e compila o CLI otimizado
+# Production build: generate gonx/routes and compile optimized CLI
 build: generate
 	go build $(BUILD_FLAGS) -o $(BINARY_NAME) $(CMD_PATH)
-	@echo "✅ Binário gerado: ./$(BINARY_NAME)"
+	@echo "Binary generated: ./$(BINARY_NAME)"
 
-# Gera arquivos compilados (.gonx -> gonx/) e rotas (gonx/framework_gen/routes.gen.go)
+# Generate compiled files (.gonx -> gonx/) and routes (gonx/framework_gen/routes.gen.go)
 generate:
 	@go run scripts/generate.go
 
-# Instala o CLI no GOPATH/bin
+# Install CLI in GOPATH/bin
 install:
 	go install $(BUILD_FLAGS) $(CMD_PATH)
-	@echo "✅ Instalado em $$(go env GOPATH)/bin/$(BINARY_NAME)"
+	@echo "Installed in $$(go env GOPATH)/bin/$(BINARY_NAME)"
 
-# Limpa artefatos gerados
+# Clean generated artifacts
 clean:
-	rm -f $(BINARY_NAME)
-	rm -rf gonx/
-	find . -name "*_templ.go" -delete
-	find . -name "styles.css" -path "*/public/*" -delete
-	@echo "🧹 Limpo"
+	@rm -f $(BINARY_NAME)
+	@rm -rf gonx/
+	@find . -name "*_templ.go" -delete
+	@find . -name "styles.css" -path "*/public/*" -delete
+	@echo "Cleaned"

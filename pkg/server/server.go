@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -21,8 +22,20 @@ type DevServer struct {
 func NewDevServer(root string) *DevServer {
 	return &DevServer{
 		root: root,
-		port: "3000",
+		port: findAvailablePort(3000),
 	}
+}
+
+func findAvailablePort(start int) string {
+	for port := start; port < start+100; port++ {
+		addr := fmt.Sprintf(":%d", port)
+		ln, err := net.Listen("tcp", addr)
+		if err == nil {
+			_ = ln.Close()
+			return fmt.Sprintf("%d", port)
+		}
+	}
+	return "3000" // Fallback
 }
 
 func (s *DevServer) Start() error {
@@ -43,7 +56,7 @@ func (s *DevServer) Restart() {
 	_ = s.stopProcessLocked()
 	time.Sleep(300 * time.Millisecond)
 	if err := s.startProcess(); err != nil {
-		fmt.Printf("Erro ao reiniciar servidor: %v\n", err)
+		fmt.Printf("Error restarting server: %v\n", err)
 	}
 }
 
@@ -83,7 +96,7 @@ func (s *DevServer) startProcess() error {
 
 	entry := s.findEntryPoint()
 	if entry == "" {
-		fmt.Println("⚠️  Nenhum ponto de entrada encontrado. Aguardando...")
+		fmt.Println("Warning: No entry point found. Waiting...")
 		return nil
 	}
 
@@ -96,7 +109,7 @@ func (s *DevServer) startProcess() error {
 		Setpgid: true,
 	}
 
-	fmt.Printf("▶️  Executando: go run %s\n", entry)
+	fmt.Printf("Executing: go run %s\n", entry)
 	return s.cmd.Start()
 }
 

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // HasGonx verifica se existe algum arquivo .gonx no projeto
@@ -58,31 +59,48 @@ func Compile(root string) error {
 		return err
 	}
 
-	for _, f := range files {
-		if err := CompileFile(f); err != nil {
+	for i, f := range files {
+		start := time.Now()
+		size, err := CompileFile(f)
+		if err != nil {
 			return fmt.Errorf("gonx %s: %w", f, err)
+		}
+		
+		if i < 10 {
+			rel, _ := filepath.Rel(root, f)
+			fmt.Printf("  compiled %s in %v (%d bytes)\n", rel, time.Since(start), size)
+		} else if i == 10 {
+			fmt.Println("  ...")
 		}
 	}
 
 	return nil
 }
 
-// CompileFile compila um único arquivo .gonx
-func CompileFile(path string) error {
+// CompileFile compila um único arquivo .gonx e retorna o tamanho do arquivo gerado
+func CompileFile(path string) (int64, error) {
 	pf, err := ParseFile(path)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	compiler := NewCompiler(pf)
 	code, err := compiler.Compile()
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	outPath := pf.OutputPath()
 	if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
-		return err
+		return 0, err
 	}
-	return os.WriteFile(outPath, []byte(code), 0644)
+	if err := os.WriteFile(outPath, []byte(code), 0644); err != nil {
+		return 0, err
+	}
+
+	info, err := os.Stat(outPath)
+	if err != nil {
+		return 0, nil
+	}
+	return info.Size(), nil
 }

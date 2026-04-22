@@ -20,13 +20,13 @@ import (
 const maxConsecutiveErrors = 5
 
 func RunDev() error {
-	fmt.Println("🚀 Iniciando servidor de desenvolvimento...")
+	fmt.Println("Starting development server...")
 
 	if err := compileAssets("."); err != nil {
-		fmt.Printf("⚠️  Aviso ao compilar assets: %v\n", err)
+		fmt.Printf("Warning during asset compilation: %v\n", err)
 	}
 	if err := generateRoutes("."); err != nil {
-		fmt.Printf("⚠️  Aviso ao gerar rotas: %v\n", err)
+		fmt.Printf("Warning during route generation: %v\n", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -37,7 +37,7 @@ func RunDev() error {
 
 	devServer := server.NewDevServer(".")
 	if err := devServer.Start(); err != nil {
-		return fmt.Errorf("falha ao iniciar servidor: %w", err)
+		return fmt.Errorf("failed to start server: %w", err)
 	}
 
 	errorCount := 0
@@ -49,50 +49,52 @@ func RunDev() error {
 		}
 
 		if errorCount >= maxConsecutiveErrors {
-			fmt.Printf("❌ Máximo de %d erros consecutivos atingido. Pausando reinícios.\n", maxConsecutiveErrors)
-			fmt.Println("💡 Corrija o erro e salve o arquivo para tentar novamente.")
+			fmt.Printf("Maximum of %d consecutive errors reached. Pausing restarts.\n", maxConsecutiveErrors)
+			fmt.Println("Fix the error and save the file to try again.")
 			time.Sleep(2 * time.Second)
 			return
 		}
 
+		start := time.Now()
 		if err := compileAssets("."); err != nil {
-			fmt.Printf("⚠️  Erro ao compilar assets: %v\n", err)
+			fmt.Printf("Error during asset compilation: %v\n", err)
 			errorCount++
 			return
 		}
 		if err := generateRoutes("."); err != nil {
-			fmt.Printf("⚠️  Erro ao gerar rotas: %v\n", err)
+			fmt.Printf("Error during route generation: %v\n", err)
 			errorCount++
 			return
 		}
 
+		fmt.Printf("Build finished in %v\n", time.Since(start))
 		errorCount = 0
 		devServer.Restart()
 	}
 
 	fw, err := watcher.NewFileWatcher(".", restartFn)
 	if err != nil {
-		return fmt.Errorf("falha ao iniciar watcher: %w", err)
+		return fmt.Errorf("failed to start watcher: %w", err)
 	}
 
 	if err := fw.Start(ctx); err != nil {
-		return fmt.Errorf("falha ao observar arquivos: %w", err)
+		return fmt.Errorf("failed to watch files: %w", err)
 	}
 
-	fmt.Println("👀 Hot-reload ativo. Pressione Ctrl+C para parar.")
+	fmt.Println("Hot-reload active. Press Ctrl+C to stop.")
 
 	<-sigCh
-	fmt.Println("\n🛑 Parando servidor...")
+	fmt.Println("\nStopping server...")
 
 	shuttingDown = true
 	fw.Disable()
 	_ = fw.Close()
 	cancel()
 
-	// Força kill imediato no grupo de processos
+	// Force immediate kill of the process group
 	devServer.Kill()
 
-	// Aguarda brevemente para garantir que a porta foi liberada
+	// Wait briefly to ensure port is released
 	time.Sleep(200 * time.Millisecond)
 
 	return nil
