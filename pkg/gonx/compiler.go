@@ -16,6 +16,7 @@ type Compiler struct {
 	usesLayout  bool
 	usesComponents bool
 	blockStack  []string
+	Minify      bool
 }
 
 func NewCompiler(pf *ParsedFile) *Compiler {
@@ -484,8 +485,10 @@ func minifyHTMLFragment(text string) string {
 func (c *Compiler) writeString(text string) string {
 	c.usesIO = true
 	
-	// Minifica o fragmento HTML (deixa o código inline e reduz o tamanho do bundle)
-	text = minifyHTMLFragment(text)
+	// Minifica o fragmento HTML apenas se solicitado (deixa o código inline e reduz o tamanho do bundle)
+	if c.Minify {
+		text = minifyHTMLFragment(text)
+	}
 
 	escaped := strings.ReplaceAll(text, `\`, `\\`)
 	escaped = strings.ReplaceAll(escaped, `"`, `\"`)

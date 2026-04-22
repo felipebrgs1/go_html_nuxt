@@ -16,11 +16,11 @@ ls:
 	@echo "  make compress       - Compress binary with UPX (if available)"
 	@echo "  make dist           - Create compressed distribution archive"
 	@echo "  make dev            - Run playground in dev mode"
+	@echo "  make build-app      - Build playground for production (minified)"
 	@echo "  make fmt            - Format all .gonx files in playground"
+	@echo "  make compress       - Compress binary with UPX (for deploy)"
+	@echo "  make dist           - Create distribution archive"
 	@echo "  make clean          - Remove built artifacts"
-	@echo "  make test-fmt       - Run fmt on the test bank"
-	@echo "  make test-lint      - Run lint on the test bank"
-	@echo "  make test-fmt-lint  - Run both fmt and lint on the test bank"
 
 # Build the framework binary
 build:
@@ -35,6 +35,10 @@ install:
 # Helper to run the playground project using the root framework
 dev: build
 	@cd playground && ../$(BINARY_NAME) dev .
+
+# Build the playground project for production (with minification)
+build-app: build
+	@cd playground && ../$(BINARY_NAME) build .
 
 # Clean framework artifacts
 clean:

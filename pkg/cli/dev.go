@@ -24,7 +24,7 @@ func RunDev(projectRoot string) error {
 	}
 	fmt.Printf("Starting development server in %s...\n", projectRoot)
 
-	if err := compileAssets(projectRoot, true); err != nil {
+	if err := compileAssets(projectRoot, true, false); err != nil {
 		fmt.Printf("Warning during asset compilation: %v\n", err)
 	}
 	if err := generateRoutes(projectRoot); err != nil {
@@ -58,7 +58,7 @@ func RunDev(projectRoot string) error {
 		}
 
 		start := time.Now()
-		if err := compileAssets(projectRoot, false); err != nil {
+		if err := compileAssets(projectRoot, false, false); err != nil {
 			fmt.Printf("Error during asset compilation: %v\n", err)
 			errorCount++
 			return
@@ -111,9 +111,9 @@ func generateRoutes(root string) error {
 	return generator.Generate(root, routes)
 }
 
-func compileAssets(root string, verbose bool) error {
+func compileAssets(root string, verbose bool, minify bool) error {
 	if gonx.HasGonx(root) {
-		if err := gonx.Compile(root, verbose); err != nil {
+		if err := gonx.Compile(root, verbose, minify); err != nil {
 			return fmt.Errorf("gonx: %w", err)
 		}
 	}
@@ -122,5 +122,25 @@ func compileAssets(root string, verbose bool) error {
 			return fmt.Errorf("tailwind: %w", err)
 		}
 	}
+	return nil
+}
+
+// RunBuild executa a compilação final (com minificação) para deploy
+func RunBuild(projectRoot string) error {
+	if projectRoot == "" {
+		projectRoot = "."
+	}
+	fmt.Printf("Building for production in %s...\n", projectRoot)
+
+	start := time.Now()
+	// No build de deploy, sempre minificamos
+	if err := compileAssets(projectRoot, true, true); err != nil {
+		return err
+	}
+	if err := generateRoutes(projectRoot); err != nil {
+		return err
+	}
+
+	fmt.Printf("Production build finished in %v\n", time.Since(start))
 	return nil
 }

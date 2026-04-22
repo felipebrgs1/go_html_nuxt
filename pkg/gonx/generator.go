@@ -34,7 +34,7 @@ func HasGonx(root string) bool {
 }
 
 // Compile procura todos os arquivos .gonx e os compila
-func Compile(root string, verbose bool) error {
+func Compile(root string, verbose bool, minify bool) error {
 	var files []string
 	
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
@@ -61,7 +61,7 @@ func Compile(root string, verbose bool) error {
 
 	for i, f := range files {
 		start := time.Now()
-		size, err := CompileFile(f)
+		size, err := CompileFile(f, minify)
 		if err != nil {
 			return fmt.Errorf("gonx %s: %w", f, err)
 		}
@@ -80,13 +80,14 @@ func Compile(root string, verbose bool) error {
 }
 
 // CompileFile compila um único arquivo .gonx e retorna o tamanho do arquivo gerado
-func CompileFile(path string) (int64, error) {
+func CompileFile(path string, minify bool) (int64, error) {
 	pf, err := ParseFile(path)
 	if err != nil {
 		return 0, err
 	}
 
 	compiler := NewCompiler(pf)
+	compiler.Minify = minify
 	code, err := compiler.Compile()
 	if err != nil {
 		return 0, err

@@ -15,15 +15,17 @@ func main() {
 		DisableStartupMessage: os.Getenv("GONX_RESTART") == "true",
 	})
 
-	// Brotli/Gzip compression for all responses
-	app.Use(compress.New(compress.Config{
-		Level: 1,
-	}))
+	// Brotli/Gzip compression only in production
+	if os.Getenv("GO_ENV") == "production" {
+		app.Use(compress.New(compress.Config{
+			Level: compress.LevelBestSpeed,
+		}))
+	}
 
-	// Static files with long-term cache + Brotli compression
+	// Static files with long-term cache
 	app.Static("/", "./public", fiber.Static{
 		MaxAge:   31536000, // 1 year
-		Compress: true,
+		Compress: os.Getenv("GO_ENV") == "production",
 	})
 
 	// Register generated routes

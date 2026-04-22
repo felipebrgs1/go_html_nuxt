@@ -106,7 +106,7 @@ func (s *DevServer) startProcess() error {
 	s.cmd.Dir = s.root
 	s.cmd.Stdout = os.Stdout
 	s.cmd.Stderr = os.Stderr
-	s.cmd.Env = append(os.Environ(), fmt.Sprintf("PORT=%s", s.port))
+	s.cmd.Env = append(os.Environ(), fmt.Sprintf("PORT=%s", s.port), "GO_ENV=development")
 	if s.isRestart {
 		s.cmd.Env = append(s.cmd.Env, "GONX_RESTART=true")
 	}
