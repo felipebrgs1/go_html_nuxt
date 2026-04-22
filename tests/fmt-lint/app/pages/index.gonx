@@ -1,0 +1,21 @@
+<template>
+  <div class="container">
+    <h1>{{ Title }}</h1>
+    <p>Welcome to the home page.</p>
+    {{ call components.Card() }}
+      <p>This is a card slot.</p>
+    {{ end }}
+  </div>
+</template>
+
+<script>
+package pages
+
+import "github.com/gofiber/fiber/v2"
+
+var Title = "Home"
+
+func Index(c *fiber.Ctx) error {
+	return nil
+}
+</script>

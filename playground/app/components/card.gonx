@@ -8,6 +8,8 @@
   </div>
 </template>
 
-<script>package components
+<script>
+package components
 
-func Card(title string, children func(io.Writer)) {}</script>
+func Card(title string, children func(io.Writer)) {}
+</script>

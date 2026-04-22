@@ -247,7 +247,8 @@
 <div id="modal-container"></div>
 </template>
 
-<script>package dashboard
+<script>
+package dashboard
 
 import (
 	"github.com/gofiber/fiber/v2"
@@ -257,4 +258,5 @@ import (
 
 //gonx:layout layouts.Index
 //gonx:layout-args "Dashboard"
-func Dashboard(c *fiber.Ctx) error {}</script>
+func Dashboard(c *fiber.Ctx) error {}
+</script>

@@ -1,0 +1,11 @@
+<template>
+  <div class="card">
+    {{ children }}
+  </div>
+</template>
+
+<script>
+package components
+
+func Card(children func(io.Writer)) {}
+</script>

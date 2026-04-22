@@ -105,14 +105,16 @@ func formatGonxFile(path string, hasPrettier bool) (changed bool, err error) {
 
 // formatBlock finds the first match of re in src, applies fn to the inner
 // content, and returns the updated string.
+// Ensures opening and closing tags stay on their own lines.
 func formatBlock(src string, re *regexp.Regexp, fn func(string) (string, error)) (string, error) {
 	match := re.FindStringSubmatchIndex(src)
 	if match == nil {
 		return src, nil
 	}
 	// Groups: [full, open-tag, content, close-tag]
-	contentStart := match[4]
-	contentEnd := match[5]
+	_, openEnd := match[2], match[3]
+	contentStart, contentEnd := match[4], match[5]
+	closeStart := match[6]
 	inner := src[contentStart:contentEnd]
 
 	formatted, err := fn(inner)
@@ -120,7 +122,18 @@ func formatBlock(src string, re *regexp.Regexp, fn func(string) (string, error))
 		return src, err
 	}
 
-	return src[:contentStart] + formatted + src[contentEnd:], nil
+	if strings.TrimSpace(formatted) == "" {
+		return src[:openEnd] + "\n" + src[closeStart:], nil
+	}
+
+	if !strings.HasPrefix(formatted, "\n") {
+		formatted = "\n" + formatted
+	}
+	if !strings.HasSuffix(formatted, "\n") {
+		formatted = formatted + "\n"
+	}
+
+	return src[:openEnd] + formatted + src[closeStart:], nil
 }
 
 // runGofmt pipes content through `gofmt`.

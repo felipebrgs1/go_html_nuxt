@@ -1,0 +1,14 @@
+<template>
+  <div>
+    <h1>Bad Handler</h1>
+    <p>This handler has an invalid signature.</p>
+  </div>
+</template>
+
+<script>
+package pages
+
+func BadHandler(name string) string {
+	return "hello"
+}
+</script>

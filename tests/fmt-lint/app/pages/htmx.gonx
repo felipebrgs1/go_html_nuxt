@@ -1,0 +1,18 @@
+<template>
+  <div>
+    <h1>HTMX Test</h1>
+    <button hx-delete="/api/item" hx-swap="delete">Delete Item</button>
+    <button hx-post="/api/update" hx-swap="outerHTML">Update</button>
+    <button hx-get="/api/data" hx-target="#result">Load Data</button>
+  </div>
+</template>
+
+<script>
+package pages
+
+import "github.com/gofiber/fiber/v2"
+
+func Htmx(c *fiber.Ctx) error {
+	return nil
+}
+</script>

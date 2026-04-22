@@ -67,10 +67,12 @@
   </div>
 </template>
 
-<script>package form
+<script>
+package form
 
 import "github.com/gofiber/fiber/v2"
 
 func Form(c *fiber.Ctx) error {
 	return nil
-}</script>
+}
+</script>

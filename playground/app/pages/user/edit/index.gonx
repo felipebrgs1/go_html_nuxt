@@ -69,7 +69,8 @@
   </div>
 </template>
 
-<script>package edit
+<script>
+package edit
 
 import (
 	"github.com/gofiber/fiber/v2"
@@ -92,4 +93,5 @@ func Get(c *fiber.Ctx) error {
 	c.Type("html")
 	RenderIndex(c.Response().BodyWriter(), c, u)
 	return nil
-}</script>
+}
+</script>
