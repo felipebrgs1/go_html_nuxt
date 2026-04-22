@@ -15,7 +15,7 @@ build: generate
 	go build $(BUILD_FLAGS) -o $(BINARY_NAME) $(CMD_PATH)
 	@echo "✅ Binário gerado: ./$(BINARY_NAME)"
 
-# Gera arquivos compilados (.gonx -> gonx/) e rotas (framework_gen/routes.gen.go)
+# Gera arquivos compilados (.gonx -> gonx/) e rotas (gonx/framework_gen/routes.gen.go)
 generate:
 	@go run scripts/generate.go
 
@@ -27,7 +27,7 @@ install:
 # Limpa artefatos gerados
 clean:
 	rm -f $(BINARY_NAME)
-	rm -rf .framework/
+	rm -rf gonx/
 	find . -name "*_templ.go" -delete
 	find . -name "styles.css" -path "*/public/*" -delete
 	@echo "🧹 Limpo"

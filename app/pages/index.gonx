@@ -77,7 +77,7 @@
 </template>
 
 <script>
-package app
+package pages
 
 import "github.com/gofiber/fiber/v2"
 
@@ -85,6 +85,3 @@ import "github.com/gofiber/fiber/v2"
 //gonx:layout-args "Framework Go + HTMX"
 func Index(c *fiber.Ctx) error {}
 </script>
-
-<style>
-</style>

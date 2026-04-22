@@ -2,7 +2,7 @@
 </template>
 
 <script>
-package user
+package edit
 
 import (
 	"strconv"
@@ -10,7 +10,7 @@ import (
 	"go_template/app/models"
 )
 
-func GetUsersEdit(c *fiber.Ctx) error {
+func Get(c *fiber.Ctx) error {
 	id, _ := strconv.Atoi(c.Query("id"))
 	u, ok := models.FindUserByID(id)
 	if !ok {
@@ -21,6 +21,3 @@ func GetUsersEdit(c *fiber.Ctx) error {
 	return nil
 }
 </script>
-
-<style>
-</style>

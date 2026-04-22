@@ -36,8 +36,5 @@
 </template>
 
 <script>
-package app
+package hello
 </script>
-
-<style>
-</style>

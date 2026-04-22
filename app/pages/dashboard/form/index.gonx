@@ -4,7 +4,7 @@
 		<div class="px-6 py-4 border-b border-gray-200">
 			<h3 class="text-lg font-medium text-gray-900">Novo Usuario</h3>
 		</div>
-		<form class="px-6 py-4 space-y-4" hx-post="/api/users" hx-target="#users-table" hx-swap="innerHTML" hx-on::after-request="this.closest('.fixed').remove()">
+		<form class="px-6 py-4 space-y-4" hx-post="/api/dashboard" hx-target="#users-table" hx-swap="innerHTML" hx-on::after-request="this.closest('.fixed').remove()">
 			<div>
 				<label class="block text-sm font-medium text-gray-700">Nome</label>
 				<input type="text" name="name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"/>
@@ -35,12 +35,9 @@
 </template>
 
 <script>
-package dashboard
+package form
 
 import "github.com/gofiber/fiber/v2"
 
 func Form(c *fiber.Ctx) error {}
 </script>
-
-<style>
-</style>

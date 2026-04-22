@@ -19,6 +19,3 @@ package components
 
 func Button(variant string, children func(io.Writer)) {}
 </script>
-
-<style>
-</style>

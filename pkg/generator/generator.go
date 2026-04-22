@@ -10,7 +10,7 @@ import (
 	"go_template/pkg/router"
 )
 
-// Generate cria o arquivo .framework/routes.gen.go com base nas rotas descobertas
+// Generate cria o arquivo gonx/framework_gen/routes.gen.go com base nas rotas descobertas
 func Generate(root string, routes []router.Route) error {
 	if len(routes) == 0 {
 		return nil
@@ -26,8 +26,8 @@ func Generate(root string, routes []router.Route) error {
 	// Agrupa imports por package path
 	importMap := make(map[string]string)
 	for _, r := range routes {
-		pkgAlias := aliasFromPath(r.PackagePath)
-		importMap[r.PackagePath] = pkgAlias
+		pkgAlias := aliasFromPath(r.PkgImport)
+		importMap[r.PkgImport] = pkgAlias
 	}
 
 	var imports []string
@@ -56,7 +56,7 @@ func Generate(root string, routes []router.Route) error {
 
 	var regLines []string
 	for _, r := range routes {
-		alias := importMap[r.PackagePath]
+		alias := importMap[r.PkgImport]
 		pattern := r.Pattern
 		// Fiber não precisa do {$} para rotas exatas, ele é padrão se não houver curingas
 		

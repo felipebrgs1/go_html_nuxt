@@ -12,6 +12,3 @@ package components
 
 func Card(title string, children func(io.Writer)) {}
 </script>
-
-<style>
-</style>

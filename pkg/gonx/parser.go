@@ -18,7 +18,7 @@ type ParsedFile struct {
 	AutoImports []string         // imports descobertos automaticamente
 	Script      string           // código Go puro do bloco <script>
 	Template    string           // conteúdo do bloco <template>
-	Style       string           // conteúdo do bloco <style>
+	Style       string           // conteúdo do bloco <style> (opcional)
 	Funcs       []FuncSignature  // funções encontradas no script
 	FilePath    string
 	Root        string           // raiz do projeto (para resolver auto-imports)

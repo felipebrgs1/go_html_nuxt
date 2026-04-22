@@ -205,7 +205,7 @@ func (l *Linter) checkRoutes() {
 		if len(rs) > 1 {
 			var handlers []string
 			for _, r := range rs {
-				handlers = append(handlers, fmt.Sprintf("%s.%s", r.PackagePath, r.HandlerName))
+				handlers = append(handlers, fmt.Sprintf("%s.%s", r.PkgImport, r.HandlerName))
 			}
 			l.result.Add("routes.gen.go", 1, "route-duplicate", Error,
 				fmt.Sprintf("rota duplicada %s registrada por: %s", key, strings.Join(handlers, ", ")))

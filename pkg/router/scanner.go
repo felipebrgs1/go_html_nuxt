@@ -12,18 +12,17 @@ import (
 	"go_template/pkg/gonx"
 )
 
-// Route representa uma rota descoberta no sistema de arquivos
+// Route representa uma rota mapeada
 type Route struct {
-	Method      string // GET, POST, PUT, DELETE, PATCH
-	Pattern     string // ex: /users/{id}
-	FilePath    string // caminho absoluto do arquivo
-	PackagePath string // import path do pacote
-	HandlerName string // nome da função handler
-	IsPage      bool   // true se vem de app/pages
-	IsAPI       bool   // true se vem de app/api
+	Method      string
+	Pattern     string
+	PkgImport    string
+	HandlerName string
+	IsPage      bool
+	SourceFile  string
 }
 
-// Scanner varre app/pages e app/api procurando handlers
+// Scanner percorre o diretório app/ para encontrar rotas
 type Scanner struct {
 	root string
 }
@@ -34,8 +33,8 @@ func NewScanner(root string) *Scanner {
 
 func (s *Scanner) Scan() ([]Route, error) {
 	appDir := filepath.Join(s.root, "app")
-	if _, err := os.Stat(appDir); err != nil {
-		return nil, nil
+	if _, err := os.Stat(appDir); os.IsNotExist(err) {
+		return nil, fmt.Errorf("diretório app/ não encontrado")
 	}
 
 	return s.scanRecursive(appDir)
@@ -48,77 +47,124 @@ func (s *Scanner) scanRecursive(root string) ([]Route, error) {
 		if err != nil {
 			return err
 		}
+
 		if info.IsDir() {
-			// Pula diretórios internos que não são rotas
-			name := info.Name()
-			if name == "layouts" || name == "components" || name == "models" || strings.HasPrefix(name, ".") {
-				return filepath.SkipDir
-			}
 			return nil
 		}
 
-		rel, err := filepath.Rel(root, path)
-		if err != nil {
-			return err
-		}
-
-		// Determina se é Página ou API baseado na extensão e localização
+		rel, _ := filepath.Rel(root, path)
 		isGonx := strings.HasSuffix(path, ".gonx")
-		isGo := strings.HasSuffix(path, ".go") && !strings.HasSuffix(path, "_test.go")
+		isGo := strings.HasSuffix(path, ".go")
 
 		if !isGonx && !isGo {
 			return nil
 		}
 
-		// Import path base para o pacote
-		// O prefixo depende se é código gerado (.gonx -> gonx/app/...) ou original (.go -> app/...)
-		prefix := "app"
-		if isGonx {
-			prefix = "gonx/app"
-		}
-
-		pkgImport := filepath.Join(s.moduleName(), prefix, filepath.Dir(rel))
-		if filepath.Dir(rel) == "." {
-			pkgImport = filepath.Join(s.moduleName(), prefix)
+		// Ignora layouts e components no escaneamento de rotas
+		if strings.Contains(rel, "layouts/") || strings.Contains(rel, "components/") || strings.Contains(rel, "models/") {
+			return nil
 		}
 
 		if isGonx {
 			pf, err := gonx.ParseFile(path)
 			if err != nil {
-				return fmt.Errorf("erro ao parsear %s: %w", path, err)
+				return nil // Pula arquivos inválidos
 			}
 
-			// .gonx são sempre páginas
-			routes = append(routes, Route{
-				Method:      "GET",
-				Pattern:     fileToRoutePath(rel, true),
-				FilePath:    path,
-				PackagePath: pkgImport,
-				HandlerName: pf.PageName,
-				IsPage:      true,
-				IsAPI:       false,
-			})
-		} else if isGo {
-			handlers, err := s.parseHandlers(path)
-			if err != nil {
-				return fmt.Errorf("erro ao parsear %s: %w", path, err)
-			}
+			// Define o prefixo de importação correto (gonx/app/...)
+			prefix := "gonx/app"
+			pkgImport := filepath.Join(s.moduleName(), prefix, filepath.Dir(rel))
 
-			for _, h := range handlers {
-				pattern := fileToRoutePath(rel, false)
-				handlerSuffix := cleanHandlerName(h.name)
+			// 1. Adiciona rotas extras encontradas no script (Get, Post, etc) PRIMEIRO
+			// Isso garante que se houver um Get(), ele tenha precedência sobre o Index() padrão
+			for _, fn := range pf.Funcs {
+				method := getMethod(fn.Name)
+				if method == "" {
+					continue
+				}
+
+				pattern := s.fileToRoutePath(rel, true)
+				handlerSuffix := cleanHandlerName(fn.Name)
 				if handlerSuffix != "" {
 					pattern = filepath.Join(pattern, handlerSuffix)
 				}
 				
+				// Garante que o pattern comece com / e use /
+				pattern = filepath.ToSlash(pattern)
+				if !strings.HasPrefix(pattern, "/") {
+					pattern = "/" + pattern
+				}
+
 				routes = append(routes, Route{
-					Method:      h.method,
-					Pattern:     filepath.ToSlash(pattern),
-					FilePath:    path,
-					PackagePath: pkgImport,
-					HandlerName: h.name,
+					Method:      method,
+					Pattern:     pattern,
+					PkgImport:    pkgImport,
+					HandlerName: fn.Name,
 					IsPage:      false,
-					IsAPI:       true,
+					SourceFile:  path,
+				})
+			}
+
+			// 2. Adiciona a rota principal de renderização da página (apenas se não houver um Get() conflitando)
+			hasGetConflict := false
+			mainPattern := s.fileToRoutePath(rel, true)
+			for _, r := range routes {
+				if r.SourceFile == path && r.Method == "GET" && r.Pattern == mainPattern && r.HandlerName != pf.PageName {
+					hasGetConflict = true
+					break
+				}
+			}
+
+			if !hasGetConflict {
+				routes = append(routes, Route{
+					Method:      "GET",
+					Pattern:     mainPattern,
+					PkgImport:    pkgImport,
+					HandlerName: pf.PageName,
+					IsPage:      true,
+					SourceFile:  path,
+				})
+			}
+		} else if isGo {
+			// Analisa arquivos .go para encontrar handlers (GetX, PostX, etc)
+			fset := token.NewFileSet()
+			f, err := parser.ParseFile(fset, path, nil, parser.ParseComments)
+			if err != nil {
+				return nil
+			}
+
+			pkgImport := filepath.Join(s.moduleName(), "app", filepath.Dir(rel))
+
+			for _, decl := range f.Decls {
+				fn, ok := decl.(*ast.FuncDecl)
+				if !ok || fn.Recv != nil {
+					continue
+				}
+
+				method := getMethod(fn.Name.Name)
+				if method == "" {
+					continue
+				}
+
+				pattern := s.fileToRoutePath(rel, false)
+				handlerSuffix := cleanHandlerName(fn.Name.Name)
+				if handlerSuffix != "" {
+					pattern = filepath.Join(pattern, handlerSuffix)
+				}
+				
+				// Garante que o pattern comece com / e use /
+				pattern = filepath.ToSlash(pattern)
+				if !strings.HasPrefix(pattern, "/") {
+					pattern = "/" + pattern
+				}
+
+				routes = append(routes, Route{
+					Method:      method,
+					Pattern:     pattern,
+					PkgImport:    pkgImport,
+					HandlerName: fn.Name.Name,
+					IsPage:      false,
+					SourceFile:  path,
 				})
 			}
 		}
@@ -130,160 +176,93 @@ func (s *Scanner) scanRecursive(root string) ([]Route, error) {
 }
 
 func (s *Scanner) moduleName() string {
-	// Lê o module name do go.mod
-	data, err := os.ReadFile(filepath.Join(s.root, "go.mod"))
-	if err != nil {
-		return ""
+	// Simplificado para o template
+	return "go_template"
+}
+
+func getMethod(name string) string {
+	if strings.HasPrefix(name, "Get") {
+		return "GET"
 	}
-	lines := strings.Split(string(data), "\n")
-	for _, line := range lines {
-		if strings.HasPrefix(line, "module ") {
-			return strings.TrimSpace(strings.TrimPrefix(line, "module "))
-		}
+	if strings.HasPrefix(name, "Post") {
+		return "POST"
+	}
+	if strings.HasPrefix(name, "Put") {
+		return "PUT"
+	}
+	if strings.HasPrefix(name, "Delete") {
+		return "DELETE"
+	}
+	if strings.HasPrefix(name, "Patch") {
+		return "PATCH"
 	}
 	return ""
 }
 
-type handlerInfo struct {
-	name   string
-	method string
-}
-
-func (s *Scanner) parseHandlers(filePath string) ([]handlerInfo, error) {
-	src, err := os.ReadFile(filePath)
-	if err != nil {
-		return nil, err
-	}
-
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, filePath, src, parser.AllErrors)
-	if err != nil {
-		return nil, err
-	}
-
-	var handlers []handlerInfo
-	for _, decl := range f.Decls {
-		fn, ok := decl.(*ast.FuncDecl)
-		if !ok || fn.Recv != nil {
-			continue
-		}
-
-		if !isHandlerFunc(fn) {
-			continue
-		}
-
-		method := methodFromName(fn.Name.Name)
-		handlers = append(handlers, handlerInfo{
-			name:   fn.Name.Name,
-			method: method,
-		})
-	}
-
-	return handlers, nil
-}
-
-func isHandlerFunc(fn *ast.FuncDecl) bool {
-	if fn.Type.Params == nil || fn.Type.Params.List == nil {
-		return false
-	}
-	// Fiber handler: func(c *fiber.Ctx) error
-	if len(fn.Type.Params.List) == 1 {
-		return true // Simplificação: assume que 1 param e retorno error é fiber
-	}
-
-	// Legado net/http: func(w, r)
-	if len(fn.Type.Params.List) == 2 {
-		return true
-	}
-	return false
-}
-
-func isGonxHandler(fn gonx.FuncSignature) bool {
-	// Verifica se é handler HTTP: tem http.ResponseWriter e *http.Request OU *fiber.Ctx
-	return strings.Contains(fn.Params, "http.ResponseWriter") || strings.Contains(fn.Params, "*fiber.Ctx")
-}
-
-func methodFromName(name string) string {
-	switch {
-	case strings.HasPrefix(name, "Get"):
-		return "GET"
-	case strings.HasPrefix(name, "Post"):
-		return "POST"
-	case strings.HasPrefix(name, "Put"):
-		return "PUT"
-	case strings.HasPrefix(name, "Delete"):
-		return "DELETE"
-	case strings.HasPrefix(name, "Patch"):
-		return "PATCH"
-	default:
-		return "GET"
-	}
-}
-
 func cleanHandlerName(name string) string {
-	name = strings.TrimPrefix(name, "Get")
-	name = strings.TrimPrefix(name, "Post")
-	name = strings.TrimPrefix(name, "Put")
-	name = strings.TrimPrefix(name, "Delete")
-	name = strings.TrimPrefix(name, "Patch")
+	prefixes := []string{"Get", "Post", "Put", "Delete", "Patch"}
+	for _, p := range prefixes {
+		if strings.HasPrefix(name, p) {
+			name = strings.TrimPrefix(name, p)
+			break
+		}
+	}
+	if name == "" {
+		return ""
+	}
+	// Converte para lowercase
 	return strings.ToLower(name)
 }
 
-func fileToRoutePath(rel string, isPage bool) string {
-	// Remove extensão .go ou .gonx
+func (s *Scanner) fileToRoutePath(rel string, isPage bool) string {
 	base := strings.TrimSuffix(rel, ".go")
 	base = strings.TrimSuffix(base, ".gonx")
-	// Converte separadores de path para /
 	base = filepath.ToSlash(base)
 
-	// api.go na raiz ou em subpastas
-	if base == "api" || strings.HasSuffix(base, "/api") {
-		base = strings.TrimSuffix(base, "api")
-		base = strings.TrimSuffix(base, "/")
-		if base == "" {
-			return "/api"
+	if isPage {
+		// Remove prefixo pages/ se existir
+		if after, ok :=strings.CutPrefix(base, "pages/"); ok  {
+			base = after
 		}
-		// _id -> {id}
-		parts := strings.Split(base, "/")
-		for i, p := range parts {
-			if strings.HasPrefix(p, "_") {
-				parts[i] = ":" + p[1:]
-			}
+		// index -> /
+		if base == "index" || strings.HasSuffix(base, "/index") {
+			base = strings.TrimSuffix(base, "index")
+			base = strings.TrimSuffix(base, "/")
 		}
-		base = strings.Join(parts, "/")
-		return "/api/" + base
+		
+		return s.applyParams(base, true)
 	}
 
-	// index.gonx -> /
-	if base == "index" || strings.HasSuffix(base, "/index") {
+	// API Handlers (.go)
+	if strings.HasPrefix(base, "api/") {
+		base = strings.TrimPrefix(base, "api/")
+	} else if strings.HasPrefix(base, "pages/") {
+		base = strings.TrimPrefix(base, "pages/")
+	}
+
+	// Remove "api" ou "index" do final
+	if base == "api" || strings.HasSuffix(base, "/api") || base == "index" || strings.HasSuffix(base, "/index") {
+		base = strings.TrimSuffix(base, "api")
 		base = strings.TrimSuffix(base, "index")
 		base = strings.TrimSuffix(base, "/")
-		if base == "" {
-			return "/"
-		}
-		// _id -> {id}
-		parts := strings.Split(base, "/")
-		for i, p := range parts {
-			if strings.HasPrefix(p, "_") {
-				parts[i] = ":" + p[1:]
-			}
-		}
-		base = strings.Join(parts, "/")
-		return "/" + base
 	}
 
-	// _id -> {id}
+	if base == "" {
+		return "/api"
+	}
+	return s.applyParams("/api/"+base, false)
+}
+
+func (s *Scanner) applyParams(base string, leadingSlash bool) string {
 	parts := strings.Split(base, "/")
 	for i, p := range parts {
 		if strings.HasPrefix(p, "_") {
-			parts[i] = "{" + p[1:] + "}"
+			parts[i] = ":" + p[1:]
 		}
 	}
-	base = strings.Join(parts, "/")
-
-	if isPage {
-		return "/" + base
+	res := strings.Join(parts, "/")
+	if leadingSlash && !strings.HasPrefix(res, "/") {
+		res = "/" + res
 	}
-	// Outros arquivos .go que não se chamam api.go também são mapeados como /api/...
-	return "/api/" + base
+	return res
 }

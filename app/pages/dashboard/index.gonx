@@ -110,7 +110,7 @@
 						name="q"
 						placeholder="Buscar usuarios..."
 						class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-						hx-get="/api/users"
+						hx-get="/api/dashboard"
 						hx-target="#users-table"
 						hx-trigger="keyup changed delay:300ms"
 					/>
@@ -167,8 +167,8 @@
 								{{ end }}
 							</td>
 							<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-								<button class="text-blue-600 hover:text-blue-900 mr-3" hx-get="{{ "/api/users/edit?id=" + strconv.Itoa(_gonx_it.ID) }}" hx-target="#modal-container" hx-swap="innerHTML">Editar</button>
-								<button class="text-red-600 hover:text-red-900" hx-delete="{{ "/api/users?id=" + strconv.Itoa(_gonx_it.ID) }}" hx-target="closest tr" hx-swap="delete" hx-confirm="Tem certeza que deseja excluir este usuario?">Excluir</button>
+								<button class="text-blue-600 hover:text-blue-900 mr-3" hx-get="{{ "/user/edit?id=" + strconv.Itoa(_gonx_it.ID) }}" hx-target="#modal-container" hx-swap="innerHTML">Editar</button>
+								<button class="text-red-600 hover:text-red-900" hx-delete="{{ "/api/dashboard?id=" + strconv.Itoa(_gonx_it.ID) }}" hx-target="closest tr" hx-swap="delete" hx-confirm="Tem certeza que deseja excluir este usuario?">Excluir</button>
 							</td>
 						</tr>
 						{{ end }}
@@ -248,7 +248,7 @@
 </template>
 
 <script>
-package app
+package dashboard
 
 import (
 	"strconv"
@@ -260,6 +260,3 @@ import (
 //gonx:layout-args "Dashboard"
 func Dashboard(c *fiber.Ctx) error {}
 </script>
-
-<style>
-</style>

@@ -6,13 +6,13 @@ Build a high-performance, Nuxt-inspired framework using **Go + HTMX + TailwindCS
 ## Framework Components (pkg/)
 
 - **gonx/**: The SFC (Single File Component) engine.
-  - `parser.go`: Extracts `<template>`, `<script>`, and `<style>` blocks. Uses `go/ast` to analyze the script.
+  - `parser.go`: Extracts `<template>`, `<script>`, and `<style>` (optional) blocks. Uses `go/ast` to analyze the script.
   - `compiler.go`: Transforms template syntax (range, if, interpolation) into standard Go `io.Writer` calls.
   - `generator.go`: Manages the output of compiled files into the `gonx/` directory.
 - **router/**:
-  - `scanner.go`: Recursively scans `app/pages` and `app/api`. Maps file paths to HTTP routes (e.g., `_id.gonx` -> `{id}`).
+  - `scanner.go`: Recursively scans `app/pages` and `app/api`. Maps file paths to HTTP routes (e.g., `_id.gonx` -> `:id`).
 - **generator/**:
-  - `generator.go`: Produces `framework_gen/routes.gen.go`. It centralizes route registration using `http.ServeMux`.
+  - `generator.go`: Produces `gonx/framework_gen/routes.gen.go`. It centralizes route registration using Fiber.
 - **watcher/**:
   - `watcher.go`: Monitors `.go`, `.gonx`, `.templ`, and `.css` files. Triggers the rebuild pipeline and restarts the dev server.
 
@@ -34,14 +34,18 @@ When a file changes, the CLI (`cmd/framework`) executes:
 1. **Gonx Compile**: All `.gonx` files -> `gonx/` Go files.
 2. **Templ Generate**: (Legacy/Current) Compile `.templ` files.
 3. **Tailwind Build**: Compile CSS to `public/styles.css`.
-4. **Route Generation**: Update `framework_gen/routes.gen.go` based on the latest scan.
+4. **Route Generation**: Update `gonx/framework_gen/routes.gen.go` based on the latest scan.
 5. **Hot Restart**: Re-run `go run main.go`.
 
 ## Project Structure
 - `cmd/framework/`: The CLI entry point.
-- `app/`: User-space code (pages, api, layouts).
-- `gonx/`: **Generated** code from templates.
-- `framework_gen/`: **Generated** route registry.
+- `app/`: User-space code.
+  - `pages/`: UI pages. Can contain local `api.go` files (e.g., `dashboard/api.go` -> `/api/dashboard`).
+  - `api/`: General API handlers (.go).
+  - `layouts/`: Shared layouts.
+- `gonx/`: **Generated** code.
+  - `app/`: Compiled SFC components.
+  - `framework_gen/`: Generated route registry.
 - `pkg/`: **Framework Core** (the actual logic we are developing).
 
 ## Key Implementation Rules

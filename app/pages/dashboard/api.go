@@ -1,4 +1,4 @@
-package user
+package dashboard
 
 import (
 	"strconv"
@@ -7,7 +7,7 @@ import (
 	"go_template/pkg/htmx"
 )
 
-func GetUsersSearch(c *fiber.Ctx) error {
+func Get(c *fiber.Ctx) error {
 	query := c.Query("q")
 	var filtered []models.User
 	for _, u := range models.Users {
@@ -20,7 +20,7 @@ func GetUsersSearch(c *fiber.Ctx) error {
 	return nil
 }
 
-func PostUsers(c *fiber.Ctx) error {
+func Post(c *fiber.Ctx) error {
 	name := c.FormValue("name")
 	email := c.FormValue("email")
 	role := c.FormValue("role")
@@ -45,7 +45,7 @@ func PostUsers(c *fiber.Ctx) error {
 	return c.Redirect("/dashboard", fiber.StatusSeeOther)
 }
 
-func PutUsers(c *fiber.Ctx) error {
+func Put(c *fiber.Ctx) error {
 	id, _ := strconv.Atoi(c.FormValue("id"))
 	name := c.FormValue("name")
 	email := c.FormValue("email")
@@ -62,7 +62,7 @@ func PutUsers(c *fiber.Ctx) error {
 	return nil
 }
 
-func DeleteUsers(c *fiber.Ctx) error {
+func Delete(c *fiber.Ctx) error {
 	id, _ := strconv.Atoi(c.Query("id"))
 
 	var filtered []models.User

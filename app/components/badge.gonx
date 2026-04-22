@@ -9,6 +9,3 @@ package components
 
 func Badge(color string, children func(io.Writer)) {}
 </script>
-
-<style>
-</style>

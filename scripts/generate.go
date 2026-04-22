@@ -26,7 +26,7 @@ func main() {
 		os.Exit(1)
 	}
 	for _, r := range routes {
-		fmt.Printf("  %s %s -> %s.%s\n", r.Method, r.Pattern, r.PackagePath, r.HandlerName)
+		fmt.Printf("  %s %s -> %s.%s\n", r.Method, r.Pattern, r.PkgImport, r.HandlerName)
 	}
 	if err := generator.Generate(".", routes); err != nil {
 		fmt.Fprintf(os.Stderr, "Erro ao gerar rotas: %v\n", err)

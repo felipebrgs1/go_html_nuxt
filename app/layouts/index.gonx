@@ -21,6 +21,3 @@ package layouts
 
 func Index(title string, children func(io.Writer)) {}
 </script>
-
-<style>
-</style>
