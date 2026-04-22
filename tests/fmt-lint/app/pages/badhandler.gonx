@@ -6,8 +6,6 @@
 </template>
 
 <script>
-package pages
-
 func BadHandler(name string) string {
 	return "hello"
 }

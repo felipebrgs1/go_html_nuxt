@@ -136,20 +136,49 @@ func formatBlock(src string, re *regexp.Regexp, fn func(string) (string, error))
 	return src[:openEnd] + formatted + src[closeStart:], nil
 }
 
+var packageRe = regexp.MustCompile(`(?m)^\s*package\s+\w+\s*$`)
+
+// autoImportBinds são imports gerenciados automaticamente pelo compilador.
+// O fmt os remove do <script> porque eles serão injetados sob demanda.
+var autoImportBinds = []string{
+	`"github.com/gofiber/fiber/v2"`,
+}
+
+// stripAutoImports remove imports que o framework injeta automaticamente.
+func stripAutoImports(script string) string {
+	for _, bind := range autoImportBinds {
+		// Caso 1: import simples em uma linha: import "path"
+		singleRe := regexp.MustCompile(`(?m)^\s*import\s+` + regexp.QuoteMeta(bind) + `\s*$`)
+		script = singleRe.ReplaceAllString(script, "")
+
+		// Caso 2: dentro de bloco import ( ... )
+		// Remove a linha que contém o bind dentro de um bloco import
+		blockLineRe := regexp.MustCompile(`(?m)^\s*` + regexp.QuoteMeta(bind) + `\s*$`)
+		script = blockLineRe.ReplaceAllString(script, "")
+	}
+
+	// Se sobrou um bloco import vazio: import () , remove-o
+	script = regexp.MustCompile(`(?m)^\s*import\s*\(\s*\)\s*$`).ReplaceAllString(script, "")
+
+	return strings.TrimSpace(script)
+}
+
 // runGofmt pipes content through `gofmt`.
+// It strips any existing `package` declaration (inferred by the parser),
+// removes auto-import binds, injects a temporary package so gofmt works,
+// then cleans up again.
 func runGofmt(script string) (string, error) {
-	// gofmt needs a valid Go file.
-	// If it doesn't have a package, we inject one.
 	trimmed := strings.TrimSpace(script)
 	if trimmed == "" {
 		return "", nil
 	}
 
-	needsPackage := !strings.Contains(trimmed, "package ")
-	input := script
-	if needsPackage {
-		input = "package _gonx_fmt\n" + script
-	}
+	// Remove user-written package declaration if present
+	input := packageRe.ReplaceAllString(script, "")
+	input = strings.TrimSpace(input)
+
+	// gofmt needs a valid Go file, so inject a temporary package
+	input = "package _gonx_fmt\n" + input
 
 	cmd := exec.Command("gofmt")
 	cmd.Stdin = strings.NewReader(input)
@@ -162,20 +191,22 @@ func runGofmt(script string) (string, error) {
 	}
 
 	result := out.String()
-	if needsPackage {
-		// More robust removal: find the first line that starts with 'package ' and remove it
-		lines := strings.Split(result, "\n")
-		var filtered []string
-		found := false
-		for _, line := range lines {
-			if !found && strings.HasPrefix(strings.TrimSpace(line), "package _gonx_fmt") {
-				found = true
-				continue
-			}
-			filtered = append(filtered, line)
+	// Remove the injected temporary package line
+	lines := strings.Split(result, "\n")
+	var filtered []string
+	found := false
+	for _, line := range lines {
+		if !found && strings.HasPrefix(strings.TrimSpace(line), "package _gonx_fmt") {
+			found = true
+			continue
 		}
-		result = strings.Join(filtered, "\n")
+		filtered = append(filtered, line)
 	}
+	result = strings.Join(filtered, "\n")
+
+	// Remove auto-import binds que o framework injeta automaticamente
+	result = stripAutoImports(result)
+
 	return strings.TrimSpace(result), nil
 }
 

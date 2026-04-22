@@ -11,7 +11,5 @@
 </template>
 
 <script>
-package layouts
-
 func Base(title string, children func(io.Writer)) {}
 </script>

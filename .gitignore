@@ -7,7 +7,7 @@ framework
 gonx/
 framework_gen/
 public/styles.css
-
+*.gz
 # Tailwind CLI (baixado automaticamente)
 tailwindcss
 # Go
