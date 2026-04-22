@@ -34,16 +34,16 @@ func NewScanner(root string) *Scanner {
 func (s *Scanner) Scan() ([]Route, error) {
 	appDir := filepath.Join(s.root, "app")
 	if _, err := os.Stat(appDir); os.IsNotExist(err) {
-		return nil, fmt.Errorf("diretório app/ não encontrado")
+		return nil, fmt.Errorf("app/ directory not found")
 	}
 
 	return s.scanRecursive(appDir)
 }
 
-func (s *Scanner) scanRecursive(root string) ([]Route, error) {
+func (s *Scanner) scanRecursive(appRoot string) ([]Route, error) {
 	var routes []Route
 
-	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(appRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -52,7 +52,7 @@ func (s *Scanner) scanRecursive(root string) ([]Route, error) {
 			return nil
 		}
 
-		rel, _ := filepath.Rel(root, path)
+		rel, _ := filepath.Rel(appRoot, path)
 		isGonx := strings.HasSuffix(path, ".gonx")
 		isGo := strings.HasSuffix(path, ".go")
 
@@ -60,7 +60,6 @@ func (s *Scanner) scanRecursive(root string) ([]Route, error) {
 			return nil
 		}
 
-		// Ignora layouts e components no escaneamento de rotas
 		if strings.Contains(rel, "layouts/") || strings.Contains(rel, "components/") || strings.Contains(rel, "models/") {
 			return nil
 		}
@@ -68,15 +67,14 @@ func (s *Scanner) scanRecursive(root string) ([]Route, error) {
 		if isGonx {
 			pf, err := gonx.ParseFile(path)
 			if err != nil {
-				return nil // Pula arquivos inválidos
+				return nil
 			}
 
-			// Define o prefixo de importação correto (gonx/app/...)
-			prefix := "gonx/app"
-			pkgImport := filepath.Join(s.moduleName(), prefix, filepath.Dir(rel))
+			// O import path do código gerado é sempre MODULE_NAME/gonx/app/...
+			pkgImport := filepath.Join(s.moduleName(), "gonx/app", filepath.Dir(rel))
+			pkgImport = filepath.ToSlash(pkgImport)
 
-			// 1. Adiciona rotas extras encontradas no script (Get, Post, etc) PRIMEIRO
-			// Isso garante que se houver um Get(), ele tenha precedência sobre o Index() padrão
+			// 1. Script Handlers
 			for _, fn := range pf.Funcs {
 				method := getMethod(fn.Name)
 				if method == "" {
@@ -89,7 +87,6 @@ func (s *Scanner) scanRecursive(root string) ([]Route, error) {
 					pattern = filepath.Join(pattern, handlerSuffix)
 				}
 				
-				// Garante que o pattern comece com / e use /
 				pattern = filepath.ToSlash(pattern)
 				if !strings.HasPrefix(pattern, "/") {
 					pattern = "/" + pattern
@@ -105,7 +102,7 @@ func (s *Scanner) scanRecursive(root string) ([]Route, error) {
 				})
 			}
 
-			// 2. Adiciona a rota principal de renderização da página (apenas se não houver um Get() conflitando)
+			// 2. Main Page Render
 			hasGetConflict := false
 			mainPattern := s.fileToRoutePath(rel, true)
 			for _, r := range routes {
@@ -126,14 +123,15 @@ func (s *Scanner) scanRecursive(root string) ([]Route, error) {
 				})
 			}
 		} else if isGo {
-			// Analisa arquivos .go para encontrar handlers (GetX, PostX, etc)
 			fset := token.NewFileSet()
 			f, err := parser.ParseFile(fset, path, nil, parser.ParseComments)
 			if err != nil {
 				return nil
 			}
 
+			// O import path de arquivos .go originais é MODULE_NAME/app/...
 			pkgImport := filepath.Join(s.moduleName(), "app", filepath.Dir(rel))
+			pkgImport = filepath.ToSlash(pkgImport)
 
 			for _, decl := range f.Decls {
 				fn, ok := decl.(*ast.FuncDecl)
@@ -152,7 +150,6 @@ func (s *Scanner) scanRecursive(root string) ([]Route, error) {
 					pattern = filepath.Join(pattern, handlerSuffix)
 				}
 				
-				// Garante que o pattern comece com / e use /
 				pattern = filepath.ToSlash(pattern)
 				if !strings.HasPrefix(pattern, "/") {
 					pattern = "/" + pattern
@@ -176,26 +173,26 @@ func (s *Scanner) scanRecursive(root string) ([]Route, error) {
 }
 
 func (s *Scanner) moduleName() string {
-	// Simplificado para o template
+	// Procura o go.mod na raiz do projeto (s.root)
+	data, err := os.ReadFile(filepath.Join(s.root, "go.mod"))
+	if err != nil {
+		return "go_template" // fallback
+	}
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		if strings.HasPrefix(line, "module ") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "module "))
+		}
+	}
 	return "go_template"
 }
 
 func getMethod(name string) string {
-	if strings.HasPrefix(name, "Get") {
-		return "GET"
-	}
-	if strings.HasPrefix(name, "Post") {
-		return "POST"
-	}
-	if strings.HasPrefix(name, "Put") {
-		return "PUT"
-	}
-	if strings.HasPrefix(name, "Delete") {
-		return "DELETE"
-	}
-	if strings.HasPrefix(name, "Patch") {
-		return "PATCH"
-	}
+	if strings.HasPrefix(name, "Get") { return "GET" }
+	if strings.HasPrefix(name, "Post") { return "POST" }
+	if strings.HasPrefix(name, "Put") { return "PUT" }
+	if strings.HasPrefix(name, "Delete") { return "DELETE" }
+	if strings.HasPrefix(name, "Patch") { return "PATCH" }
 	return ""
 }
 
@@ -207,10 +204,6 @@ func cleanHandlerName(name string) string {
 			break
 		}
 	}
-	if name == "" {
-		return ""
-	}
-	// Converte para lowercase
 	return strings.ToLower(name)
 }
 
@@ -219,28 +212,23 @@ func (s *Scanner) fileToRoutePath(rel string, isPage bool) string {
 	base = strings.TrimSuffix(base, ".gonx")
 	base = filepath.ToSlash(base)
 
+	// Remove prefixo pages/ se existir (relativo ao app/)
+	if after, ok := strings.CutPrefix(base, "pages/"); ok {
+		base = after
+	}
+
 	if isPage {
-		// Remove prefixo pages/ se existir
-		if after, ok :=strings.CutPrefix(base, "pages/"); ok  {
-			base = after
-		}
-		// index -> /
 		if base == "index" || strings.HasSuffix(base, "/index") {
 			base = strings.TrimSuffix(base, "index")
 			base = strings.TrimSuffix(base, "/")
 		}
-		
 		return s.applyParams(base, true)
 	}
 
-	// API Handlers (.go)
-	if strings.HasPrefix(base, "api/") {
-		base = strings.TrimPrefix(base, "api/")
-	} else if strings.HasPrefix(base, "pages/") {
-		base = strings.TrimPrefix(base, "pages/")
+	// API Handlers
+	if after, ok := strings.CutPrefix(base, "api/"); ok {
+		base = after
 	}
-
-	// Remove "api" ou "index" do final
 	if base == "api" || strings.HasSuffix(base, "/api") || base == "index" || strings.HasSuffix(base, "/index") {
 		base = strings.TrimSuffix(base, "api")
 		base = strings.TrimSuffix(base, "index")

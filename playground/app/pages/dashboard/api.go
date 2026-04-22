@@ -3,7 +3,7 @@ package dashboard
 import (
 	"strconv"
 	"github.com/gofiber/fiber/v2"
-	"go_template/app/models"
+	"playground/app/models"
 	"go_template/pkg/htmx"
 )
 

@@ -12,24 +12,29 @@ import (
 )
 
 func main() {
-	fmt.Println("[generate] Compilando .gonx...")
-	if err := gonx.Compile("."); err != nil {
-		fmt.Fprintf(os.Stderr, "Erro ao compilar gonx: %v\n", err)
+	path := "."
+	if len(os.Args) > 1 {
+		path = os.Args[1]
+	}
+
+	fmt.Printf("[generate] Compiling .gonx in %s...\n", path)
+	if err := gonx.Compile(path); err != nil {
+		fmt.Fprintf(os.Stderr, "Error compiling gonx: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Println("[generate] Gerando rotas...")
-	s := router.NewScanner(".")
+	fmt.Println("[generate] Generating routes...")
+	s := router.NewScanner(path)
 	routes, err := s.Scan()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Erro ao scanear rotas: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error scanning routes: %v\n", err)
 		os.Exit(1)
 	}
 	for _, r := range routes {
 		fmt.Printf("  %s %s -> %s.%s\n", r.Method, r.Pattern, r.PkgImport, r.HandlerName)
 	}
-	if err := generator.Generate(".", routes); err != nil {
-		fmt.Fprintf(os.Stderr, "Erro ao gerar rotas: %v\n", err)
+	if err := generator.Generate(path, routes); err != nil {
+		fmt.Fprintf(os.Stderr, "Error generating routes: %v\n", err)
 		os.Exit(1)
 	}
 	fmt.Println("[generate] OK")

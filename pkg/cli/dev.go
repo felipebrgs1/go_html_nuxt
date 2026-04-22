@@ -19,13 +19,16 @@ import (
 
 const maxConsecutiveErrors = 5
 
-func RunDev() error {
-	fmt.Println("Starting development server...")
+func RunDev(projectRoot string) error {
+	if projectRoot == "" {
+		projectRoot = "."
+	}
+	fmt.Printf("Starting development server in %s...\n", projectRoot)
 
-	if err := compileAssets("."); err != nil {
+	if err := compileAssets(projectRoot); err != nil {
 		fmt.Printf("Warning during asset compilation: %v\n", err)
 	}
-	if err := generateRoutes("."); err != nil {
+	if err := generateRoutes(projectRoot); err != nil {
 		fmt.Printf("Warning during route generation: %v\n", err)
 	}
 
@@ -35,7 +38,7 @@ func RunDev() error {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 
-	devServer := server.NewDevServer(".")
+	devServer := server.NewDevServer(projectRoot)
 	if err := devServer.Start(); err != nil {
 		return fmt.Errorf("failed to start server: %w", err)
 	}
@@ -56,12 +59,12 @@ func RunDev() error {
 		}
 
 		start := time.Now()
-		if err := compileAssets("."); err != nil {
+		if err := compileAssets(projectRoot); err != nil {
 			fmt.Printf("Error during asset compilation: %v\n", err)
 			errorCount++
 			return
 		}
-		if err := generateRoutes("."); err != nil {
+		if err := generateRoutes(projectRoot); err != nil {
 			fmt.Printf("Error during route generation: %v\n", err)
 			errorCount++
 			return
@@ -72,7 +75,7 @@ func RunDev() error {
 		devServer.Restart()
 	}
 
-	fw, err := watcher.NewFileWatcher(".", restartFn)
+	fw, err := watcher.NewFileWatcher(projectRoot, restartFn)
 	if err != nil {
 		return fmt.Errorf("failed to start watcher: %w", err)
 	}

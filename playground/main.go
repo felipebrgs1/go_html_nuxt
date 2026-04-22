@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/gofiber/fiber/v2"
-	"go_template/gonx/framework_gen"
+	"playground/gonx/framework_gen"
 )
 
 func main() {

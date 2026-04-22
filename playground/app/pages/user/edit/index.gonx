@@ -7,7 +7,7 @@ package edit
 import (
 	"strconv"
 	"github.com/gofiber/fiber/v2"
-	"go_template/app/models"
+	"playground/app/models"
 )
 
 func Get(c *fiber.Ctx) error {
