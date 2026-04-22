@@ -15,6 +15,7 @@ type Compiler struct {
 	usesFiber   bool
 	usesLayout  bool
 	usesComponents bool
+	usesGonx    bool
 	blockStack  []string
 	Minify      bool
 }
@@ -35,6 +36,9 @@ func (c *Compiler) Compile() (string, error) {
 	var body strings.Builder
 
 	c.usesComponents = strings.Contains(c.pf.Template, "call components.")
+	
+	// Pre-processamento
+	c.pf.Template = preprocessIcons(c.pf.Template)
 
 	if c.pf.IsPage {
 		if err := c.compilePage(&body); err != nil {
@@ -88,6 +92,9 @@ func (c *Compiler) buildImports() []string {
 		moduleName := c.pf.ModuleName()
 		imports = append(imports, fmt.Sprintf(`"%s/gonx/app/components"`, moduleName))
 	}
+	if c.usesGonx {
+		imports = append(imports, `"go_template/pkg/gonx"`)
+	}
 
 	// Imports explícitos do usuário
 	imports = append(imports, c.pf.Imports...)
@@ -132,12 +139,20 @@ func (c *Compiler) compilePage(b *strings.Builder) error {
 		}
 	}
 
-	params := "w io.Writer, c *fiber.Ctx"
+	params := "w io.Writer"
+	if !strings.Contains(c.pf.FilePath, "app/components/") {
+		params = "w io.Writer, c *fiber.Ctx"
+	}
+
 	if stub != nil && stub.Params != "" {
 		if strings.Contains(stub.Params, "w io.Writer") {
 			params = stub.Params
 		} else {
 			params = "w io.Writer, " + stub.Params
+			// Se for página, adiciona o Ctx se não estiver presente
+			if !strings.Contains(c.pf.FilePath, "app/components/") && !strings.Contains(stub.Params, "*fiber.Ctx") {
+				params = "w io.Writer, c *fiber.Ctx, " + stub.Params
+			}
 		}
 	}
 
@@ -179,9 +194,9 @@ func (c *Compiler) compilePage(b *strings.Builder) error {
 		b.WriteString("\tw := c.Response().BodyWriter()\n")
 		b.WriteString("\tc.Set(\"Content-Type\", \"text/html; charset=utf-8\")\n")
 		if layout.LayoutArgs != "" {
-			b.WriteString(fmt.Sprintf("\t%s(w, %s, func(w io.Writer) {\n", layoutCall, layout.LayoutArgs))
+			b.WriteString(fmt.Sprintf("\t%s(w, c, %s, func(w io.Writer) {\n", layoutCall, layout.LayoutArgs))
 		} else {
-			b.WriteString(fmt.Sprintf("\t%s(w, func(w io.Writer) {\n", layoutCall))
+			b.WriteString(fmt.Sprintf("\t%s(w, c, func(w io.Writer) {\n", layoutCall))
 		}
 		b.WriteString(fmt.Sprintf("\t\t%s(w, c)\n", renderName))
 		b.WriteString("\t})\n")
@@ -226,6 +241,7 @@ func (c *Compiler) compileAPI(b *strings.Builder) error {
 	// Inclui funções com corpo do script
 	for _, fn := range c.pf.Funcs {
 		if fn.HasBody && fn.BodySource != "" {
+			b.WriteString(fmt.Sprintf("//line %s:%d\n", c.pf.FilePath, c.pf.ScriptStartLine))
 			b.WriteString(fn.BodySource + "\n\n")
 		}
 	}
@@ -304,11 +320,15 @@ func (c *Compiler) compileTemplateBody(b *strings.Builder, tmpl string, indent i
 		if m[0] > lastIndex {
 			text := tmpl[lastIndex:m[0]]
 			if strings.TrimSpace(text) != "" {
-				b.WriteString(c.writeString(text, indent))
+				b.WriteString(c.writeString(text, indent, lastIndex))
 			}
 		}
 
 		expr := tmpl[m[2]:m[3]]
+		// Calcula a linha da expressão
+		exprLine := c.pf.TemplateStartLine + strings.Count(tmpl[:m[2]], "\n")
+		b.WriteString(fmt.Sprintf("//line %s:%d\n", c.pf.FilePath, exprLine))
+
 		if err := c.compileExpr(b, strings.TrimSpace(expr), indent); err != nil {
 			return err
 		}
@@ -319,7 +339,7 @@ func (c *Compiler) compileTemplateBody(b *strings.Builder, tmpl string, indent i
 	if lastIndex < len(tmpl) {
 		text := tmpl[lastIndex:]
 		if strings.TrimSpace(text) != "" {
-			b.WriteString(c.writeString(text, indent))
+			b.WriteString(c.writeString(text, indent, lastIndex))
 		}
 	}
 
@@ -399,6 +419,16 @@ func (c *Compiler) compileExpr(b *strings.Builder, expr string, indent int) erro
 		return nil
 	}
 
+	if strings.HasPrefix(expr, "icon ") {
+		args := strings.TrimPrefix(expr, "icon ")
+		// Se houver múltiplos argumentos (ex: "zap" "class"), insere uma vírgula entre eles
+		args = strings.ReplaceAll(args, "\" \"", "\", \"")
+		c.usesGonx = true
+		c.usesIO = true
+		b.WriteString(tabs + fmt.Sprintf("io.WriteString(w, gonx.Icon(%s))\n", args))
+		return nil
+	}
+
 	// É uma expressão de valor -> precisa de fmt e html
 	c.usesFmt = true
 	c.usesIO = true
@@ -422,6 +452,7 @@ func (c *Compiler) compileExpr(b *strings.Builder, expr string, indent int) erro
 }
 
 // autoInjectHTMX insere o script do HTMX local no <head> se ainda não estiver presente.
+// autoInjectHTMX insere o script do HTMX local no <head> se ainda não estiver presente.
 func autoInjectHTMX(tmpl string) string {
 	lower := strings.ToLower(tmpl)
 	// Só injeta se houver <head> e não houver referência ao htmx.min.js
@@ -444,6 +475,39 @@ func autoInjectHTMX(tmpl string) string {
 
 	script := "\n<script src=\"/htmx.min.js\"></script>"
 	return tmpl[:headOpenEnd] + script + tmpl[headOpenEnd:]
+}
+
+// preprocessIcons converte <Icon name="xxx" ... /> em {{ icon "xxx" map[...] }}
+func preprocessIcons(tmpl string) string {
+	re := regexp.MustCompile(`(?i)<Icon\s+([^>]*)\/>`)
+	return re.ReplaceAllStringFunc(tmpl, func(match string) string {
+		inner := re.FindStringSubmatch(match)[1]
+		
+		// Parse de atributos simples
+		attrRe := regexp.MustCompile(`([\w:-]+)=["']([^"']*)["']`)
+		attrs := attrRe.FindAllStringSubmatch(inner, -1)
+		
+		name := ""
+		otherAttrs := []string{}
+		
+		for _, attr := range attrs {
+			if attr[1] == "name" {
+				name = attr[2]
+			} else {
+				// Converte atributos para o mapa Go
+				otherAttrs = append(otherAttrs, fmt.Sprintf("%q: %q", attr[1], attr[2]))
+			}
+		}
+		
+		if name == "" {
+			return "<!-- Icon name is required -->"
+		}
+		
+		if len(otherAttrs) > 0 {
+			return fmt.Sprintf("{{ icon %q, map[string]any{%s} }}", name, strings.Join(otherAttrs, ", "))
+		}
+		return fmt.Sprintf("{{ icon %q }}", name)
+	})
 }
 
 func minifyHTMLFragment(text string) string {
@@ -480,7 +544,7 @@ func minifyHTMLFragment(text string) string {
 	return strings.TrimSpace(text)
 }
 
-func (c *Compiler) writeString(text string, indent int) string {
+func (c *Compiler) writeString(text string, indent int, posOffset int) string {
 	c.usesIO = true
 	tabs := strings.Repeat("\t", indent)
 
@@ -489,7 +553,7 @@ func (c *Compiler) writeString(text string, indent int) string {
 	}
 
 	// Regex para encontrar atributos attr="val" ou attr='val'
-	re := regexp.MustCompile(`([\w:-]+)=("[^"]*"|'[^']*')`)
+	re := regexp.MustCompile(`([\w@:-]+)=("[^"]*"|'[^']*')`)
 	lastIndex := 0
 	matches := re.FindAllStringSubmatchIndex(text, -1)
 
@@ -510,6 +574,17 @@ func (c *Compiler) writeString(text string, indent int) string {
 			expr = expr[1 : len(expr)-1]
 		}
 
+		// Se começa com @, é um binding de evento.
+		if strings.HasPrefix(attrName, "@") {
+			if m[0] > lastIndex {
+				b.WriteString(tabs + fmt.Sprintf("io.WriteString(w, %q)\n", text[lastIndex:m[0]]))
+			}
+			eventName := strings.TrimPrefix(attrName, "@")
+			b.WriteString(fmt.Sprintf("%sio.WriteString(w, \" hx-on:%s=\\\"%s\\\"\")\n", tabs, eventName, expr))
+			lastIndex = m[1]
+			continue
+		}
+
 		// Se não começa com :, não é um binding dinâmico. Pula.
 		if !strings.HasPrefix(attrName, ":") {
 			continue
@@ -518,6 +593,10 @@ func (c *Compiler) writeString(text string, indent int) string {
 		if m[0] > lastIndex {
 			b.WriteString(tabs + fmt.Sprintf("io.WriteString(w, %q)\n", text[lastIndex:m[0]]))
 		}
+
+		// Calcula a linha do atributo dinâmico
+		attrLine := c.pf.TemplateStartLine + strings.Count(c.pf.Template[:posOffset+m[4]], "\n")
+		b.WriteString(fmt.Sprintf("%s//line %s:%d\n", tabs, c.pf.FilePath, attrLine))
 
 		// Se a expressão está envolta em aspas simples (ex: :attr="'valor'"),
 		// converte para aspas duplas para o Go tratar como string.

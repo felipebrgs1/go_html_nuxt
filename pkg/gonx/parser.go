@@ -7,7 +7,6 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 )
 
@@ -25,6 +24,8 @@ type ParsedFile struct {
 	IsPage      bool             // true se vem de app/pages
 	IsAPI       bool             // true se vem de app/api
 	PageName    string           // nome do handler para páginas (PascalCase do arquivo)
+	TemplateStartLine int        // linha onde começa o <template>
+	ScriptStartLine   int        // linha onde começa o <script>
 }
 
 // FuncSignature representa uma função encontrada no script
@@ -66,10 +67,10 @@ func ParseFile(path string) (*ParsedFile, error) {
 	pf.IsAPI = !pf.IsPage
 	pf.PageName = fileToHandlerName(path)
 
-	// Extrai blocos <template>, <script>, <style>
-	pf.Template = ExtractBlock(string(content), "template")
-	pf.Script = ExtractBlock(string(content), "script")
-	pf.Style = ExtractBlock(string(content), "style")
+	// Extrai blocos <template>, <script>, <style> com rastreamento de linha
+	pf.Template, pf.TemplateStartLine = ExtractBlockWithLine(string(content), "template")
+	pf.Script, pf.ScriptStartLine = ExtractBlockWithLine(string(content), "script")
+	pf.Style, _ = ExtractBlockWithLine(string(content), "style")
 
 	// Parse o script para extrair package, imports e funções.
 	// Se o bloco <script> estiver ausente ou vazio, inferimos defaults do path.
@@ -117,9 +118,17 @@ func findProjectRoot(filePath string) string {
 }
 
 func ExtractBlock(content, tag string) string {
+	res, _ := ExtractBlockWithLine(content, tag)
+	return res
+}
+
+func ExtractBlockWithLine(content, tag string) (string, int) {
 	startTag := "<" + tag
 	endTag := "</" + tag + ">"
 	
+	var firstInner string
+	var firstLine int
+
 	pos := 0
 	for {
 		startIdx := strings.Index(content[pos:], startTag)
@@ -142,51 +151,34 @@ func ExtractBlock(content, tag string) string {
 		}
 		openTagEnd += startIdx
 
-		// Procura a tag de fechamento correspondente
+		// Encontra a tag de fechamento correspondente
 		endIdx := strings.Index(content[openTagEnd:], endTag)
 		if endIdx == -1 {
 			break
 		}
 		endIdx += openTagEnd
 
-		// Se for o bloco de script, e estivermos no layout, queremos o script Go (que geralmente contém 'package ')
-		// Se houver múltiplos blocos (ex: script JS no template), tentamos identificar o correto.
+		// Calcula a linha inicial (1-indexed)
+		line := strings.Count(content[:openTagEnd+1], "\n") + 1
+
 		inner := content[openTagEnd+1 : endIdx]
 		
 		// Heurística simples: se procuramos <script> e o conteúdo tem 'package ', é quase certeza o bloco Go.
 		// Para outros blocos, ou se não houver 'package ', pegamos o primeiro nível encontrado.
 		if tag == "script" && strings.Contains(inner, "package ") {
-			return strings.TrimSpace(inner)
+			return strings.TrimSpace(inner), line
 		}
 		
-		// Se for template, pegamos o primeiro
-		if tag == "template" {
-			return strings.TrimSpace(inner)
-		}
-		
-		// Se for style, pegamos o primeiro
-		if tag == "style" {
-			return strings.TrimSpace(inner)
+		// Se chegamos aqui, guardamos o primeiro bloco encontrado como fallback
+		if firstInner == "" {
+			firstInner = strings.TrimSpace(inner)
+			firstLine = line
 		}
 
 		pos = endIdx + len(endTag)
 	}
 
-	// Fallback para o comportamento anterior se não encontrou via heurística
-	re := regexp.MustCompile(`(?s)<` + tag + `[^>]*>(.*?)</` + tag + `>`)
-	matches := re.FindAllStringSubmatch(content, -1)
-	if len(matches) == 0 { return "" }
-	
-	// Se for script, prefere o que tem "package "
-	if tag == "script" {
-		for _, m := range matches {
-			if strings.Contains(m[1], "package ") {
-				return strings.TrimSpace(m[1])
-			}
-		}
-	}
-	
-	return strings.TrimSpace(matches[0][1])
+	return firstInner, firstLine
 }
 
 // inferPackageFromPath derives the Go package name from the file's parent directory.
