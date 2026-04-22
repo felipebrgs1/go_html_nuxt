@@ -110,15 +110,15 @@
 						name="q"
 						placeholder="Buscar usuarios..."
 						class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-						hx-get="/api/dashboard"
-						hx-target="#users-table"
-						hx-trigger="keyup changed delay:300ms"
+						:hx-get="'/api/dashboard'"
+						:hx-target="'#users-table'"
+						:hx-trigger="'keyup changed delay:300ms'"
 					/>
 					<button
 						class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
-						hx-get="/dashboard/form"
-						hx-target="#modal-container"
-						hx-swap="innerHTML"
+						:hx-get="'/dashboard/form'"
+						:hx-target="'#modal-container'"
+						:hx-swap="'innerHTML'"
 					>
 						+ Novo
 					</button>
@@ -167,8 +167,8 @@
 								{{ end }}
 							</td>
 							<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-								<button class="text-blue-600 hover:text-blue-900 mr-3" hx-get="{{ "/user/edit?id=" + strconv.Itoa(_gonx_it.ID) }}" hx-target="#modal-container" hx-swap="innerHTML">Editar</button>
-								<button class="text-red-600 hover:text-red-900" hx-delete="{{ "/api/dashboard?id=" + strconv.Itoa(_gonx_it.ID) }}" hx-target="closest tr" hx-swap="delete" hx-confirm="Tem certeza que deseja excluir este usuario?">Excluir</button>
+								<button class="text-blue-600 hover:text-blue-900 mr-3" :hx-get='"/user/edit?id=" + strconv.Itoa(_gonx_it.ID)' :hx-target="'#modal-container'" :hx-swap="'innerHTML'">Editar</button>
+								<button class="text-red-600 hover:text-red-900" :hx-delete='"/api/dashboard?id=" + strconv.Itoa(_gonx_it.ID)' :hx-target="'closest tr'" :hx-swap="'delete'" :hx-confirm="'Tem certeza que deseja excluir este usuario?'">Excluir</button>
 							</td>
 						</tr>
 						{{ end }}
@@ -217,7 +217,7 @@
 							<span class="font-medium text-gray-900">45%</span>
 						</div>
 						<div class="w-full bg-gray-200 rounded-full h-2">
-							<div class="bg-blue-600 h-2 rounded-full" style="width: 45%"></div>
+							<div class="bg-blue-600 h-2 rounded-full" :style='"width: 45%"'></div>
 						</div>
 					</div>
 					<div>
@@ -226,7 +226,7 @@
 							<span class="font-medium text-gray-900">72%</span>
 						</div>
 						<div class="w-full bg-gray-200 rounded-full h-2">
-							<div class="bg-green-500 h-2 rounded-full" style="width: 72%"></div>
+							<div class="bg-green-500 h-2 rounded-full" :style='"width: 72%"'></div>
 						</div>
 					</div>
 					<div>
@@ -235,7 +235,7 @@
 							<span class="font-medium text-gray-900">28%</span>
 						</div>
 						<div class="w-full bg-gray-200 rounded-full h-2">
-							<div class="bg-purple-500 h-2 rounded-full" style="width: 28%"></div>
+							<div class="bg-purple-500 h-2 rounded-full" :style='"width: 28%"'></div>
 						</div>
 					</div>
 				</div>

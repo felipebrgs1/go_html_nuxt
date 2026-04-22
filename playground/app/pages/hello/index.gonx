@@ -19,12 +19,13 @@
           <p class="text-gray-600 mb-4">Este botão faz uma requisição para <code>/api/hello</code> e injeta o resultado HTML diretamente abaixo.</p>
           
           <button 
-            hx-get="/api/hello" 
-            hx-target="#hello-result" 
-            hx-swap="innerHTML"
-            class="inline-flex items-center px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 active:translate-y-0"
+            :hx-get="'/api/hello'" 
+            :hx-target="'#hello-result'" 
+            :hx-swap="'innerHTML'"
+            :class="'inline-flex items-center px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 active:translate-y-0'"
+            :disabled="false"
           >
-            Chamar API via HTMX
+            Chamar API via HTMX (Dynamic)
           </button>
 
           <div id="hello-result" class="mt-6 min-h-[100px] border-2 border-dashed border-gray-300 rounded-xl flex items-center justify-center text-gray-400 italic bg-white">

@@ -295,8 +295,6 @@ func (c *Compiler) compileFunc(b *strings.Builder, fn FuncSignature) error {
 }
 
 func (c *Compiler) compileTemplateBody(b *strings.Builder, tmpl string, indent int) error {
-	tabs := strings.Repeat("\t", indent)
-
 	re := regexp.MustCompile(`(?s)\{\{\s*(.*?)\s*\}\}`)
 
 	lastIndex := 0
@@ -306,7 +304,7 @@ func (c *Compiler) compileTemplateBody(b *strings.Builder, tmpl string, indent i
 		if m[0] > lastIndex {
 			text := tmpl[lastIndex:m[0]]
 			if strings.TrimSpace(text) != "" {
-				b.WriteString(tabs + c.writeString(text))
+				b.WriteString(c.writeString(text, indent))
 			}
 		}
 
@@ -321,7 +319,7 @@ func (c *Compiler) compileTemplateBody(b *strings.Builder, tmpl string, indent i
 	if lastIndex < len(tmpl) {
 		text := tmpl[lastIndex:]
 		if strings.TrimSpace(text) != "" {
-			b.WriteString(tabs + c.writeString(text))
+			b.WriteString(c.writeString(text, indent))
 		}
 	}
 
@@ -482,18 +480,77 @@ func minifyHTMLFragment(text string) string {
 	return strings.TrimSpace(text)
 }
 
-func (c *Compiler) writeString(text string) string {
+func (c *Compiler) writeString(text string, indent int) string {
 	c.usesIO = true
-	
-	// Minifica o fragmento HTML apenas se solicitado (deixa o código inline e reduz o tamanho do bundle)
+	tabs := strings.Repeat("\t", indent)
+
 	if c.Minify {
 		text = minifyHTMLFragment(text)
 	}
 
-	escaped := strings.ReplaceAll(text, `\`, `\\`)
-	escaped = strings.ReplaceAll(escaped, `"`, `\"`)
-	escaped = strings.ReplaceAll(escaped, "\n", `\n`)
-	escaped = strings.ReplaceAll(escaped, "\t", `\t`)
+	// Regex para encontrar atributos attr="val" ou attr='val'
+	re := regexp.MustCompile(`([\w:-]+)=("[^"]*"|'[^']*')`)
+	lastIndex := 0
+	matches := re.FindAllStringSubmatchIndex(text, -1)
 
-	return fmt.Sprintf("io.WriteString(w, \"%s\")\n", escaped)
+	var b strings.Builder
+	booleanAttrs := map[string]bool{
+		"disabled": true, "checked": true, "required": true, "readonly": true,
+		"hidden": true, "multiple": true, "autofocus": true, "autoplay": true,
+		"controls": true, "loop": true, "muted": true, "playsinline": true,
+		"default": true, "ismap": true, "novalidate": true, "noresize": true,
+		"scoped": true, "async": true, "defer": true, "reversed": true, "open": true,
+	}
+
+	for _, m := range matches {
+		attrName := text[m[2]:m[3]]
+		expr := text[m[4]:m[5]]
+		// Remove as aspas externas do valor capturado ("..." ou '...')
+		if len(expr) >= 2 {
+			expr = expr[1 : len(expr)-1]
+		}
+
+		// Se não começa com :, não é um binding dinâmico. Pula.
+		if !strings.HasPrefix(attrName, ":") {
+			continue
+		}
+
+		if m[0] > lastIndex {
+			b.WriteString(tabs + fmt.Sprintf("io.WriteString(w, %q)\n", text[lastIndex:m[0]]))
+		}
+
+		// Se a expressão está envolta em aspas simples (ex: :attr="'valor'"),
+		// converte para aspas duplas para o Go tratar como string.
+		if strings.HasPrefix(expr, "'") && strings.HasSuffix(expr, "'") {
+			expr = "\"" + strings.Trim(expr, "'") + "\""
+		}
+
+		// Remove o prefixo : para o nome do atributo final
+		attrName = strings.TrimPrefix(attrName, ":")
+
+		if booleanAttrs[attrName] {
+			b.WriteString(fmt.Sprintf("%sif fmt.Sprintf(\"%%v\", %s) == \"true\" {\n", tabs, expr))
+			b.WriteString(fmt.Sprintf("%s\tio.WriteString(w, \" %s\")\n", tabs, attrName))
+			b.WriteString(fmt.Sprintf("%s}\n", tabs))
+			c.usesFmt = true
+		} else {
+			c.usesFmt = true
+			c.usesHtml = true
+			b.WriteString(fmt.Sprintf("%sio.WriteString(w, \" %s=\\\"\")\n", tabs, attrName))
+			b.WriteString(fmt.Sprintf("%sio.WriteString(w, html.EscapeString(fmt.Sprintf(\"%%v\", %s)))\n", tabs, expr))
+			b.WriteString(fmt.Sprintf("%sio.WriteString(w, \"\\\"\")\n", tabs))
+		}
+
+		lastIndex = m[1]
+	}
+
+	if lastIndex == 0 {
+		return tabs + fmt.Sprintf("io.WriteString(w, %q)\n", text)
+	}
+
+	if lastIndex < len(text) {
+		b.WriteString(tabs + fmt.Sprintf("io.WriteString(w, %q)\n", text[lastIndex:]))
+	}
+
+	return b.String()
 }
