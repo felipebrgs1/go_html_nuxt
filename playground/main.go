@@ -12,6 +12,7 @@ import (
 
 func main() {
 	app := fiber.New(fiber.Config{
+		Prefork:               true,
 		DisableStartupMessage: os.Getenv("GONX_RESTART") == "true",
 	})
 

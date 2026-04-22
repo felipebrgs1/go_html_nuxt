@@ -27,7 +27,7 @@
     --color-green-800: oklch(44.8% 0.119 151.328);
     --color-emerald-500: oklch(69.6% 0.17 162.48);
     --color-teal-600: oklch(60% 0.118 184.704);
-    --color-sky-400: oklch(74.6% 0.16 232.661);
+    --color-cyan-600: oklch(60.9% 0.126 221.723);
     --color-blue-100: oklch(93.2% 0.032 255.585);
     --color-blue-200: oklch(88.2% 0.059 254.128);
     --color-blue-400: oklch(70.7% 0.165 254.624);
@@ -60,7 +60,6 @@
     --color-gray-700: oklch(37.3% 0.034 259.733);
     --color-gray-800: oklch(27.8% 0.033 256.848);
     --color-gray-900: oklch(21% 0.034 264.665);
-    --color-black: #000;
     --color-white: #fff;
     --spacing: 0.25rem;
     --container-md: 28rem;
@@ -454,9 +453,6 @@
   .grid-cols-1 {
     grid-template-columns: repeat(1, minmax(0, 1fr));
   }
-  .grid-cols-4 {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
   .flex-col {
     flex-direction: column;
   }
@@ -519,6 +515,12 @@
       margin-block-start: calc(calc(var(--spacing) * 6) * var(--tw-space-y-reverse));
       margin-block-end: calc(calc(var(--spacing) * 6) * calc(1 - var(--tw-space-y-reverse)));
     }
+  }
+  .gap-x-4 {
+    column-gap: calc(var(--spacing) * 4);
+  }
+  .gap-y-12 {
+    row-gap: calc(var(--spacing) * 12);
   }
   .divide-y {
     :where(& > :not(:last-child)) {
@@ -846,9 +848,6 @@
   .text-amber-700 {
     color: var(--color-amber-700);
   }
-  .text-black {
-    color: var(--color-black);
-  }
   .text-blue-400 {
     color: var(--color-blue-400);
   }
@@ -860,6 +859,9 @@
   }
   .text-blue-700 {
     color: var(--color-blue-700);
+  }
+  .text-cyan-600 {
+    color: var(--color-cyan-600);
   }
   .text-emerald-500 {
     color: var(--color-emerald-500);
@@ -926,9 +928,6 @@
   }
   .text-rose-500 {
     color: var(--color-rose-500);
-  }
-  .text-sky-400 {
-    color: var(--color-sky-400);
   }
   .text-teal-600 {
     color: var(--color-teal-600);
@@ -1200,11 +1199,6 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
-  .md\:grid-cols-6 {
-    @media (width >= 48rem) {
-      grid-template-columns: repeat(6, minmax(0, 1fr));
-    }
-  }
   .lg\:col-span-2 {
     @media (width >= 64rem) {
       grid-column: span 2 / span 2;
@@ -1218,11 +1212,6 @@
   .lg\:grid-cols-4 {
     @media (width >= 64rem) {
       grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-  }
-  .lg\:grid-cols-10 {
-    @media (width >= 64rem) {
-      grid-template-columns: repeat(10, minmax(0, 1fr));
     }
   }
 }

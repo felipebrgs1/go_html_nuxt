@@ -59,10 +59,10 @@
         </div>
       </div>
 
-      <div class="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-10 gap-8">
-        <!-- Diversos ícones para teste -->
+      <div class="grid gap-y-12 gap-x-4" style="grid-template-columns: repeat(7, minmax(0, 1fr));">
+        <!-- Linha 1 -->
         <div class="flex flex-col items-center gap-2">
-          <Icon name="home" class="w-8 h-8 text-gray-700" />
+          <Icon name="home" class="w-8 h-8 text-indigo-600" />
           <span class="text-[10px] text-gray-400 font-mono">home</span>
         </div>
         <div class="flex flex-col items-center gap-2">
@@ -89,17 +89,19 @@
           <Icon name="search" class="w-8 h-8 text-gray-400" />
           <span class="text-[10px] text-gray-400 font-mono">search</span>
         </div>
+
+        <!-- Linha 2 -->
         <div class="flex flex-col items-center gap-2">
           <Icon name="calendar" class="w-8 h-8 text-green-500" />
           <span class="text-[10px] text-gray-400 font-mono">calendar</span>
         </div>
         <div class="flex flex-col items-center gap-2">
-          <Icon name="github" class="w-8 h-8 text-black" />
-          <span class="text-[10px] text-gray-400 font-mono">github</span>
+          <Icon name="cpu" class="w-8 h-8 text-indigo-600" />
+          <span class="text-[10px] text-gray-400 font-mono">cpu</span>
         </div>
         <div class="flex flex-col items-center gap-2">
-          <Icon name="twitter" class="w-8 h-8 text-sky-400" />
-          <span class="text-[10px] text-gray-400 font-mono">twitter</span>
+          <Icon name="terminal" class="w-8 h-8 text-gray-800" />
+          <span class="text-[10px] text-gray-400 font-mono">terminal</span>
         </div>
         <div class="flex flex-col items-center gap-2">
           <Icon name="shield-check" class="w-8 h-8 text-emerald-500" />
@@ -113,6 +115,12 @@
           <Icon name="cloud-rain" class="w-8 h-8 text-blue-400" />
           <span class="text-[10px] text-gray-400 font-mono">cloud</span>
         </div>
+        <div class="flex flex-col items-center gap-2">
+          <Icon name="globe" class="w-8 h-8 text-cyan-600" />
+          <span class="text-[10px] text-gray-400 font-mono">globe</span>
+        </div>
+
+        <!-- Linha 3 -->
         <div class="flex flex-col items-center gap-2">
           <Icon name="camera" class="w-8 h-8 text-gray-600" />
           <span class="text-[10px] text-gray-400 font-mono">camera</span>
